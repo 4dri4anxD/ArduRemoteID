@@ -6,7 +6,8 @@ Led led;
 
 void Led::init(void)
 {
-    if (done_init) {
+    if (done_init)
+    {
         return;
     }
     done_init = true;
@@ -19,6 +20,11 @@ void Led::init(void)
 #endif
 }
 
+/*
+void Led::start(void){
+
+}*/
+
 void Led::update(void)
 {
     init();
@@ -26,15 +32,17 @@ void Led::update(void)
     const uint32_t now_ms = millis();
 
 #ifdef PIN_STATUS_LED
-    switch (state) {
-    case LedState::ARM_OK: {
+    switch (state)
+    {
+    case LedState::ARM_OK:
+    {
         digitalWrite(PIN_STATUS_LED, STATUS_LED_OK);
         last_led_trig_ms = now_ms;
         break;
     }
-
     default:
-        if (now_ms - last_led_trig_ms > 100) {
+        if (now_ms - last_led_trig_ms > 100)
+        {
             digitalWrite(PIN_STATUS_LED, !digitalRead(PIN_STATUS_LED));
             last_led_trig_ms = now_ms;
         }
@@ -45,19 +53,27 @@ void Led::update(void)
 #ifdef WS2812_LED_PIN
     ledStrip.clear();
 
-    switch (state) {
+    switch (state)
+    {
     case LedState::ARM_OK:
         ledStrip.setPixelColor(0, ledStrip.Color(0, 255, 0));
+        break;
+    case LedState::STARTING:
+        ledStrip.setPixelColor(0, ledStrip.Color(0, 0, 255));
+        break;
+    case LedState::OFF:
+        //digitalWrite(PIN_STATUS_LED, STATUS_LED_OK);
+        ledStrip.setPixelColor(0, ledStrip.Color(0, 0, 0));
         break;
 
     default:
         ledStrip.setPixelColor(0, ledStrip.Color(255, 0, 0));
         break;
     }
-    if (now_ms - last_led_strip_ms >= 200) {
+    if (now_ms - last_led_strip_ms >= 200)
+    {
         last_led_strip_ms = now_ms;
         ledStrip.show();
     }
 #endif
 }
-

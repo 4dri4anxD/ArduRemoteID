@@ -13,7 +13,9 @@ public:
         INIT=0,
         PFST_FAIL,
         ARM_FAIL,
-        ARM_OK
+        ARM_OK,
+        STARTING,
+        OFF
     };
 
     void set_state(LedState _state) {

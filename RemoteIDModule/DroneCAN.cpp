@@ -347,12 +347,19 @@ void DroneCAN::handle_get_node_info(CanardInstance* ins, CanardRxTransfer* trans
     pkt.software_version.major = FW_VERSION_MAJOR;
     pkt.software_version.minor = FW_VERSION_MINOR;
     pkt.software_version.optional_field_flags = UAVCAN_PROTOCOL_SOFTWAREVERSION_OPTIONAL_FIELD_FLAG_VCS_COMMIT | UAVCAN_PROTOCOL_SOFTWAREVERSION_OPTIONAL_FIELD_FLAG_IMAGE_CRC;
-    pkt.software_version.vcs_commit = GIT_VERSION;
+    pkt.software_version.vcs_commit = SW_VERSION_LAST;//GIT_VERSION;
 
     readUniqueID(pkt.hardware_version.unique_id);
 
-    pkt.hardware_version.major = CAN_BOARD_ID >> 8;
-    pkt.hardware_version.minor = CAN_BOARD_ID & 0xFF;
+    if (strcmp((char *)pkt.name.data, "Aurelia Technologies")==0)
+    {
+        pkt.hardware_version.major = HW_VERSION_MAJOR; // CAN_BOARD_ID >> 8;// HW_VERSION_MAJOR;
+        pkt.hardware_version.minor = HW_VERSION_MINOR; // CAN_BOARD_ID & 0xFF;//HW_VERSION_MINOR;
+    }else{
+        pkt.hardware_version.major = CAN_BOARD_ID >> 8;// HW_VERSION_MAJOR;
+        pkt.hardware_version.minor = CAN_BOARD_ID & 0xFF;//HW_VERSION_MINOR;
+    }
+
     snprintf((char*)pkt.name.data, sizeof(pkt.name.data), "%s", CAN_APP_NODE_NAME);
     pkt.name.len = strnlen((char*)pkt.name.data, sizeof(pkt.name.data));
 

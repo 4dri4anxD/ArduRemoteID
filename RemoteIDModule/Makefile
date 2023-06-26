@@ -15,31 +15,35 @@ export PATH := $(HOME)/.local/bin:$(PATH)
 
 .PHONY: headers
 
-all: headers esp32s3dev esp32c3dev bluemark-db200 bluemark-db110 jw-tbd mro-rid jwrid-esp32s3 bluemark-db202
+all: headers aurelia-rid
+#esp32s3dev esp32c3dev bluemark-db200 bluemark-db110 jw-tbd mro-rid jwrid-esp32s3 bluemark-db202 aurelia-rid
 
-esp32s3dev: CHIP=esp32s3
-esp32s3dev: ArduRemoteID-ESP32S3_DEV.bin
+#esp32s3dev: CHIP=esp32s3
+#esp32s3dev: ArduRemoteID-ESP32S3_DEV.bin
 
-esp32c3dev: CHIP=esp32c3
-esp32c3dev: ArduRemoteID-ESP32C3_DEV.bin
+#esp32c3dev: CHIP=esp32c3
+#esp32c3dev: ArduRemoteID-ESP32C3_DEV.bin
 
-bluemark-db200: CHIP=esp32c3
-bluemark-db200: ArduRemoteID-BLUEMARK_DB200.bin
+#bluemark-db200: CHIP=esp32c3
+#bluemark-db200: ArduRemoteID-BLUEMARK_DB200.bin
 
-bluemark-db110: CHIP=esp32c3
-bluemark-db110: ArduRemoteID-BLUEMARK_DB110.bin
+#bluemark-db110: CHIP=esp32c3
+#bluemark-db110: ArduRemoteID-BLUEMARK_DB110.bin
 
-jw-tbd: CHIP=esp32s3
-jw-tbd: ArduRemoteID-JW_TBD.bin
+#jw-tbd: CHIP=esp32s3
+#jw-tbd: ArduRemoteID-JW_TBD.bin
 
-jwrid-esp32s3: CHIP=esp32s3
-jwrid-esp32s3: ArduRemoteID-JWRID_ESP32S3.bin
+#jwrid-esp32s3: CHIP=esp32s3
+#jwrid-esp32s3: ArduRemoteID-JWRID_ESP32S3.bin
 
-mro-rid: CHIP=esp32c3
-mro-rid: ArduRemoteID-MRO_RID.bin
+#mro-rid: CHIP=esp32c3
+#mro-rid: ArduRemoteID-MRO_RID.bin
 
-bluemark-db202: CHIP=esp32c3
-bluemark-db202: ArduRemoteID-BLUEMARK_DB202.bin
+#bluemark-db202: CHIP=esp32c3
+#bluemark-db202: ArduRemoteID-BLUEMARK_DB202.bin
+
+aurelia-rid: CHIP=esp32c3
+aurelia-rid: ArduRemoteID-AURELIA_RID.bin
 
 setup:
 	@echo "Installing ESP32 support"
