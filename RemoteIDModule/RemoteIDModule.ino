@@ -88,7 +88,8 @@ void setup()
     // Serial1 for MAVLink
     Serial1.begin(g.baudrate, SERIAL_8N1, PIN_UART_RX, PIN_UART_TX);
     display.begin(0x02, SCREEN_ADDRESS);//SSD1306_SWITCHCAPVCC
-    init_i2c_display();
+    uint32_t flt_time_rid = g.find("FLT_TIME")->get_uint32();
+    print_i2c_display(flt_time_rid);
 
     // set all fields to invalid/initial values
     odid_initUasData(&UAS_data);
@@ -173,18 +174,6 @@ void print_i2c_display(uint32_t flt_time)
     display.setTextSize(1);
     display.setCursor(28, 57);
     display.println("Time counter");
-    display.display();
-}
-
-void init_i2c_display()
-{
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(1);
-    display.setCursor(40, 3);
-    display.println("FLT TIME");
-    display.setCursor(34, 50);
-    display.println("Starting...");
     display.display();
 }
 
