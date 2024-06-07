@@ -40,6 +40,8 @@ const Parameters::Param Parameters::params[] = {
     { "OPTIONS",           Parameters::ParamType::UINT8,  (const void*)&g.options,          0, 0, 254 },
     { "TO_DEFAULTS",     Parameters::ParamType::UINT8,  (const void*)&g.to_factory_defaults,    0, 0, 1 }, //if set to 1, reset to factory defaults and make 0.
     { "DONE_INIT",         Parameters::ParamType::UINT8,  (const void*)&g.done_init,        0, 0, 0, PARAM_FLAG_HIDDEN},
+    { "FLT_TIME",         Parameters::ParamType::UINT32,  (const void*)&g.flt_time,        0, 0, 946080000, PARAM_FLAG_HIDDEN},//30 years maximum
+    { "FLT_TIME_AUX",         Parameters::ParamType::UINT32,  (const void*)&g.flt_time_aux,        0, 0, 946080000, PARAM_FLAG_HIDDEN},//30 years maximum
     { "",                  Parameters::ParamType::NONE,   nullptr,  },
 };
 
@@ -378,6 +380,16 @@ bool Parameters::have_basic_id_info(void) const
 bool Parameters::have_basic_id_2_info(void) const
 {
     return strlen(g.uas_id_2) > 0 && g.id_type_2 > 0 && g.ua_type_2 > 0;
+}
+
+bool Parameters::set_by_name_uint32(const char *name, uint32_t v)
+{
+    const auto *f = find(name);
+    if (!f) {
+        return false;
+    }
+    f->set_uint32(v);
+    return true;
 }
 
 bool Parameters::set_by_name_uint8(const char *name, uint8_t v)

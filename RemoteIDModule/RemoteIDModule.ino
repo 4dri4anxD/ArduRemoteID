@@ -24,6 +24,14 @@
 #include <esp_ota_ops.h>
 #include "efuse.h"
 #include "led.h"
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_SSD1306.h>
+#include <Adafruit_GFX.h>
+#include <math.h>
+
+#define SCREEN_ADDRESS 0x3C
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 
 #if AP_DRONECAN_ENABLED
@@ -57,10 +65,14 @@ static bool pfst_check_ok = false;
  */
 void setup()
 {
+    //SDA-SCL, I2C
+    Wire.begin(18,19);
     // disable brownout checking
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 
     g.init();
+
+    start_blink(FW_VERSION_MAJOR, Led::LedState::STARTING);
 
     led.set_state(Led::LedState::INIT);
     led.update();
@@ -75,6 +87,8 @@ void setup()
 
     // Serial1 for MAVLink
     Serial1.begin(g.baudrate, SERIAL_8N1, PIN_UART_RX, PIN_UART_TX);
+    display.begin(0x02, SCREEN_ADDRESS);//SSD1306_SWITCHCAPVCC
+    init_i2c_display();
 
     // set all fields to invalid/initial values
     odid_initUasData(&UAS_data);
@@ -127,6 +141,71 @@ void setup()
 
 #define IMIN(x,y) ((x)<(y)?(x):(y))
 #define ODID_COPY_STR(to, from) strncpy(to, (const char*)from, IMIN(sizeof(to), sizeof(from)))
+
+void start_blink(int times, Led::LedState _state)
+{
+    for (int i = 0; i < times; i++)
+    {
+        led.set_state(_state);
+        led.update();
+        delay(500);
+        led.set_state(Led::LedState::OFF);
+        led.update();
+        delay(500);
+    }
+}
+
+void print_i2c_display(uint32_t flt_time)
+{
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(1);
+
+    display.setCursor(40, 3);
+    display.println("FLT TIME");
+    String hrs = scs_to_hrs(flt_time);
+    String min = scs_to_min(hrs.toInt(), flt_time);
+    display.setTextSize(2);
+    String txt = hrs+" min";//hrs
+    center_txt_screen(txt, 17);
+    txt = min+" s";//min
+    center_txt_screen(txt, 38);
+    display.setTextSize(1);
+    display.setCursor(28, 57);
+    display.println("Time counter");
+    display.display();
+}
+
+void init_i2c_display()
+{
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(1);
+    display.setCursor(40, 3);
+    display.println("FLT TIME");
+    display.setCursor(34, 50);
+    display.println("Starting...");
+    display.display();
+}
+
+void center_txt_screen(String txt, int ver_pos)
+{
+    int len = txt.length();
+    int begin = ((round(10 - len) / 2) * 12) + 2;
+    display.setCursor(begin, ver_pos);
+    display.println(txt);
+}
+
+String scs_to_hrs(int scs)
+{
+    //return String(scs / 3600000);
+    return String(scs/60);//test
+}
+String scs_to_min(int hrs, int scs)
+{
+    //return String((scs - hrs * 3600) / 60);
+    return String(scs - (hrs*60));//test
+}
 
 /*
   check parsing of UAS_data, this checks ranges of values to ensure we
@@ -196,6 +275,7 @@ static void set_data(Transport &t)
     const auto &system = t.get_system();
     const auto &self_id = t.get_self_id();
     const auto &location = t.get_location();
+    const auto &flt_time = t.get_flt_time();
 
     odid_initUasData(&UAS_data);
 
@@ -322,6 +402,19 @@ static void set_data(Transport &t)
         UAS_data.Location.TSAccuracy = (ODID_Timestamp_accuracy_t)location.timestamp_accuracy;
         UAS_data.Location.TimeStamp = location.timestamp;
         UAS_data.LocationValid = 1;
+    }
+
+    uint32_t flt_time_aux = g.find("FLT_TIME_AUX")->get_uint32();
+    if (flt_time.flt_time > 0 && flt_time_aux != flt_time.flt_time) {
+        uint32_t flt_time_rid = g.find("FLT_TIME")->get_uint32();
+        uint32_t new_time = flt_time.flt_time>flt_time_rid?flt_time.flt_time:(abs((int32_t)(flt_time.flt_time - flt_time_aux)) + flt_time_rid);
+        bool flt_time_flag = flt_time.flt_time >= flt_time_aux;
+        g.set_by_name_uint32("FLT_TIME_AUX", flt_time.flt_time);
+
+        if (flt_time_flag) {
+            print_i2c_display(new_time);
+            g.set_by_name_uint32("FLT_TIME", new_time);
+        }
     }
 
     const char *reason = check_parse();

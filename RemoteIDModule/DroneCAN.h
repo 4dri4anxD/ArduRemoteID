@@ -13,7 +13,9 @@
 #include <dronecan.remoteid.SecureCommand.h>
 
 #define CAN_POOL_SIZE 4096
-
+#define HW_VERSION_MAJOR 2
+#define HW_VERSION_MINOR 1
+#define SW_VERSION_LAST 2
 
 class DroneCAN : public Transport {
 public:
@@ -29,6 +31,7 @@ private:
 
     void node_status_send(void);
     void arm_status_send(void);
+    void uas_id_send(void);
 
     uint8_t tx_fail_count;
 
@@ -59,6 +62,7 @@ private:
     void handle_Location(CanardRxTransfer* transfer);
     void handle_param_getset(CanardInstance* ins, CanardRxTransfer* transfer);
     void handle_SecureCommand(CanardInstance* ins, CanardRxTransfer* transfer);
+    void handle_FltTime(CanardRxTransfer* transfer);
 
     void can_printf(const char *fmt, ...);
 
