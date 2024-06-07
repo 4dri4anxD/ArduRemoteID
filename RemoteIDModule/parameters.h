@@ -37,6 +37,8 @@ public:
     uint8_t wifi_channel = 6;
     uint8_t to_factory_defaults = 0;
     uint8_t options;
+    uint32_t flt_time;
+    uint32_t flt_time_aux;
     struct {
         char b64_key[64];
     } public_keys[MAX_PUBLIC_KEYS];
@@ -88,6 +90,7 @@ public:
 
     bool set_by_name_uint8(const char *name, uint8_t v);
     bool set_by_name_int8(const char *name, int8_t v);
+    bool set_by_name_uint32(const char *name, uint32_t v);
     bool set_by_name_char64(const char *name, const char *s);
     bool set_by_name_string(const char *name, const char *s);
 
