@@ -104,6 +104,7 @@ public:
 
     static uint16_t param_count_float(void);
     static int16_t param_index_float(const Param *p);
+    int32_t get_serial_number();
 
 private:
     void load_defaults(void);
