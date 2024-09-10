@@ -31,7 +31,6 @@ private:
 
     void node_status_send(void);
     void arm_status_send(void);
-    void uas_id_send(void);
 
     uint8_t tx_fail_count;
 
@@ -63,6 +62,7 @@ private:
     void handle_param_getset(CanardInstance* ins, CanardRxTransfer* transfer);
     void handle_SecureCommand(CanardInstance* ins, CanardRxTransfer* transfer);
     void handle_FltTime(CanardRxTransfer* transfer);
+    void handle_SerialNumber(CanardRxTransfer* transfer);
 
     void can_printf(const char *fmt, ...);
 

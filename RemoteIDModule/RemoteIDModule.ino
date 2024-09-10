@@ -265,6 +265,7 @@ static void set_data(Transport &t)
     const auto &self_id = t.get_self_id();
     const auto &location = t.get_location();
     const auto &flt_time = t.get_flt_time();
+    const auto &serial_number = t.get_serial_number();
 
     odid_initUasData(&UAS_data);
 

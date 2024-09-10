@@ -369,6 +369,14 @@ void Parameters::init(void)
     }
 }
 
+int32_t Parameters::get_serial_number(){
+    char serial_n[6];
+    strncpy(serial_n, g.uas_id + 9, 5);
+    serial_n[5] = '\0';
+    int32_t sn  = static_cast<int32_t>(strtol(serial_n, nullptr, 5));
+    return sn;
+}
+
 /*
   check if BasicID info is filled in with parameters
  */
