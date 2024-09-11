@@ -81,7 +81,6 @@ uint8_t Transport::arm_status_check(const char *&reason)
     if (system.operator_latitude == 0 && system.operator_longitude == 0) {
         ret += "OP_LOC ";//este, ni siquiera lo manda el cube
     }
-
     if (serial_number.serial_number == 0 || now_ms - last_serial_number_ms > max_age_other_ms) {
         ret += "SN ";
     }else if (serial_number.serial_number != g.get_serial_number()) {
