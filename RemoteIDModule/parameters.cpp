@@ -365,15 +365,18 @@ void Parameters::init(void)
 #else
         set_by_name_char64("PUBLIC_KEY3", ROMFS::find_string("public_keys/ArduPilot_public_key3.dat"));
 #endif
+#if defined(BOARD_AURELIA_RID)
+        set_by_name_char64("PUBLIC_KEY4", ROMFS::find_string("public_keys/AureliaKeys_public_key1.dat"));
+#endif
 
     }
 }
 
 int32_t Parameters::get_serial_number(){
     char serial_n[6];
-    strncpy(serial_n, g.uas_id + 9, 5);
+    strncpy(serial_n, g.uas_id + 9, 5);//Imprimir uas_id
     serial_n[5] = '\0';
-    int32_t sn  = static_cast<int32_t>(strtol(serial_n, nullptr, 5));
+    int32_t sn  = atoi(serial_n);
     return sn;
 }
 
