@@ -11,6 +11,8 @@
 #include <dronecan.remoteid.System.h>
 #include <dronecan.remoteid.OperatorID.h>
 #include <dronecan.remoteid.SecureCommand.h>
+#include <dronecan.aurelia.util.AckRequest.h>
+#include <dronecan.aurelia.util.AckMessage.h>
 
 #define CAN_POOL_SIZE 4096
 #define HW_VERSION_MAJOR 2
@@ -25,12 +27,15 @@ public:
 
 private:
     uint32_t last_node_status_ms;
+    uint32_t last_ack_ms;
+    uint32_t last_arm_status_ms;
     CANDriver can_driver;
     CanardInstance canard;
     uint32_t canard_memory_pool[CAN_POOL_SIZE/sizeof(uint32_t)];
 
     void node_status_send(void);
     void arm_status_send(void);
+    void ack_send(void);
 
     uint8_t tx_fail_count;
 
@@ -63,6 +68,7 @@ private:
     void handle_SecureCommand(CanardInstance* ins, CanardRxTransfer* transfer);
     void handle_FltTime(CanardRxTransfer* transfer);
     void handle_SerialNumber(CanardRxTransfer* transfer);
+    void handle_AckRequest(CanardRxTransfer* transfer);
 
     void can_printf(const char *fmt, ...);
 

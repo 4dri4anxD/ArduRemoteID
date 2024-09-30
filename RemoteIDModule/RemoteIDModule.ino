@@ -29,6 +29,14 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
 #include <math.h>
+#include <SPIFFS.h>
+#include "flight_checker.h"
+#include "distance_checker.h"
+#include "monocypher.h"
+#include "cipher_config.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #define SCREEN_ADDRESS 0x3C
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
@@ -37,6 +45,9 @@ Adafruit_SSD1306 display(128, 64, &Wire, -1);
 #if AP_DRONECAN_ENABLED
 static DroneCAN dronecan;
 #endif
+
+FlightChecks ac;
+DistanceCheck dc;
 
 #if AP_MAVLINK_ENABLED
 static MAVLinkSerial mavlink1{Serial1, MAVLINK_COMM_0};
@@ -56,6 +67,7 @@ static WebInterface webif;
 
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+//#include <esp_task_wdt.h>
 
 static bool arm_check_ok = false; // goes true for LED arm check status
 static bool pfst_check_ok = false;
@@ -65,6 +77,8 @@ static bool pfst_check_ok = false;
  */
 void setup()
 {
+    //esp_task_wdt_init(10, true);
+    //esp_task_wdt_add(NULL);
     //SDA-SCL, I2C
     Wire.begin(18,19);
     // disable brownout checking
@@ -72,10 +86,7 @@ void setup()
 
     g.init();
 
-    start_blink(FW_VERSION_MAJOR, Led::LedState::STARTING);
-
-    led.set_state(Led::LedState::INIT);
-    led.update();
+    
 
     if (g.webserver_enable) {
         // need WiFi for web server
@@ -84,12 +95,12 @@ void setup()
 
     // Serial for debug printf
     Serial.begin(g.baudrate);
-
+    led_blink(BLINK_TIMES::INIT, Led::LedState::STARTING);
     // Serial1 for MAVLink
     Serial1.begin(g.baudrate, SERIAL_8N1, PIN_UART_RX, PIN_UART_TX);
-    display.begin(0x02, SCREEN_ADDRESS);//SSD1306_SWITCHCAPVCC
+    //display.begin(0x02, SCREEN_ADDRESS);//SSD1306_SWITCHCAPVCC
     uint32_t flt_time_rid = g.find("FLT_TIME")->get_uint32();
-    print_i2c_display(flt_time_rid);
+    //print_i2c_display(flt_time_rid);
 
     // set all fields to invalid/initial values
     odid_initUasData(&UAS_data);
@@ -101,9 +112,7 @@ void setup()
 #if AP_DRONECAN_ENABLED
     dronecan.init();
 #endif
-
     set_efuses();
-
     CheckFirmware::check_OTA_running();
 
 #if defined(PIN_CAN_EN)
@@ -129,23 +138,43 @@ void setup()
     pinMode(GPIO_NUM_39, OUTPUT);
     digitalWrite(GPIO_NUM_39, HIGH);
 #endif
-
     pfst_check_ok = true;   // note - this will need to be expanded to better capture PFST test status
-
     // initially set LED for fail
-    led.set_state(Led::LedState::ARM_FAIL);
+    led.set_state(Led::LedState::STARTING);
 
     esp_log_level_set("*", ESP_LOG_DEBUG);
 
     esp_ota_mark_app_valid_cancel_rollback();
+
+    //display.setTextColor(1);
+
+    if (!SPIFFS.begin(true))
+    {
+        led_blink(BLINK_TIMES::MOUNTING, Led::LedState::ARM_FAIL);
+        Serial.println("An Error has occurred while mounting SPIFFS");
+        return;
+    }
+
+    ac.init();
+    /*ac.update_location(54.5205, 25.19735);
+    size_t freeHeap = xPortGetFreeHeapSize();
+    Serial.print("RAM libre: ");
+    Serial.print(freeHeap);
+    Serial.println(" bytes");
+    ac.is_flying_allowed();
+    freeHeap = xPortGetFreeHeapSize();
+    Serial.print("RAM libre: ");
+    Serial.print(freeHeap);
+    Serial.println(" bytes");
+    delay(10000);*/
 }
 
 #define IMIN(x,y) ((x)<(y)?(x):(y))
 #define ODID_COPY_STR(to, from) strncpy(to, (const char*)from, IMIN(sizeof(to), sizeof(from)))
 
-void start_blink(int times, Led::LedState _state)
+void led_blink(BLINK_TIMES times, Led::LedState _state)
 {
-    for (int i = 0; i < times; i++)
+    for (int i = 0; i < (uint8_t)times; i++)
     {
         led.set_state(_state);
         led.update();
@@ -160,8 +189,6 @@ void print_i2c_display(uint32_t flt_time)
 {
     display.clearDisplay();
     display.setTextSize(1);
-    display.setTextColor(1);
-
     display.setCursor(40, 3);
     display.println("FLT TIME");
     String hrs = scs_to_hrs(flt_time);
@@ -209,6 +236,9 @@ static const char *check_parse(void)
         ODID_Location_encoded encoded {};
         if (encodeLocationMessage(&encoded, &UAS_data.Location) != ODID_SUCCESS) {
             ret += "LOC ";
+        }else{
+            ac.update_location(UAS_data.Location.Latitude, UAS_data.Location.Longitude);
+            //ac.update_location(35.839506, 139.683918);
         }
     }
     {
@@ -402,13 +432,13 @@ static void set_data(Transport &t)
         g.set_by_name_uint32("FLT_TIME_AUX", flt_time.flt_time);
 
         if (flt_time_flag) {
-            print_i2c_display(new_time);
+            //print_i2c_display(new_time);
             g.set_by_name_uint32("FLT_TIME", new_time);
         }
     }
 
     const char *reason = check_parse();
-    t.arm_status_check(reason);
+    t.status_check(reason);
     t.set_parse_fail(reason);
 
     arm_check_ok = (reason==nullptr);
@@ -417,7 +447,7 @@ static void set_data(Transport &t)
         arm_check_ok = true;
     }
 
-    led.set_state(pfst_check_ok && arm_check_ok? Led::LedState::ARM_OK : Led::LedState::ARM_FAIL);
+    led.set_state(pfst_check_ok && arm_check_ok? Led::LedState::ARM_OK : ac.get_files_read() ? Led::LedState::ARM_FAIL : Led::LedState::STARTING);
 
     uint32_t now_ms = millis();
     uint32_t location_age_ms = now_ms - t.get_last_location_ms();
@@ -425,6 +455,23 @@ static void set_data(Transport &t)
     if (location_age_ms < last_location_age_ms) {
         last_location_ms = t.get_last_location_ms();
     }
+}
+
+void send_ack_response(Transport &t){
+    uint8_t message[MSG_LENGTH];
+    uint8_t cipher_text[MSG_LENGTH];
+    uint8_t mac[MAC_LENGTH];
+
+    uint8_t nonce[NONCE_LENGTH];
+    for (uint8_t i = 0; i < NONCE_LENGTH; ++i) {
+        nonce[i] = std::rand() % 256;
+    }
+    uint32_t timestamp = millis();
+    memcpy(message, ACK_MESSAGE, sizeof(ACK_MESSAGE));
+    memcpy(&message[13], &timestamp, sizeof(timestamp));
+
+    crypto_lock(mac, cipher_text, KEY, nonce, message, MSG_LENGTH);
+    t.set_ack_response(mac, nonce, cipher_text);
 }
 
 static uint8_t loop_counter = 0;
@@ -494,6 +541,10 @@ void loop()
         }
     }
 
+    if(transport.get_ack_request_status() == MAV_AURELIA_UTIL_ACK_REQUEST_NEED){
+        send_ack_response(transport);
+    }
+    
     set_data(transport);
 
     static uint32_t last_update_wifi_nan_ms;
@@ -524,7 +575,6 @@ void loop()
         last_update_bt4_ms = now_ms;
         ble.transmit_legacy(UAS_data);
     }
-
     // sleep for a bit for power saving
     delay(1);
 }

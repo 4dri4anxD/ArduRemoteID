@@ -162,6 +162,14 @@
 
 #elif defined(BOARD_AURELIA_RID)
 #define BOARD_ID 24//26
+/*#define PIN_CAN_TX GPIO_NUM_47
+#define PIN_CAN_RX GPIO_NUM_38
+
+#define PIN_UART_TX 18
+#define PIN_UART_RX 17
+
+#define WS2812_LED_PIN GPIO_NUM_48*/
+
 #define PIN_CAN_TX GPIO_NUM_1
 #define PIN_CAN_RX GPIO_NUM_0
 
