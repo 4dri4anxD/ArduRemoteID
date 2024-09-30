@@ -24,9 +24,11 @@
 #include <dronecan.remoteid.SelfID.h>
 #include <dronecan.remoteid.System.h>
 #include <dronecan.remoteid.OperatorID.h>
-#include <dronecan.remoteid.ArmStatus.h>
+#include <dronecan.aurelia.remoteid.Status.h>
 #include <dronecan.aurelia.util.FltTime.h>
 #include <dronecan.aurelia.remoteid.SerialNumber.h>
+#include <dronecan.aurelia.util.AckRequest.h>
+#include <dronecan.aurelia.util.AckMessage.h>
 
 #ifndef CAN_BOARD_ID
 #define CAN_BOARD_ID 10001
@@ -90,44 +92,39 @@ void DroneCAN::update(void)
         if (now_ms - last_node_status_ms >= 1000) {
             last_node_status_ms = now_ms;
             node_status_send();
+        }
+        if (now_ms - last_arm_status_ms >= 500) {
+            last_arm_status_ms = now_ms;
             arm_status_send();
+        }
+        if (now_ms - last_ack_ms >= 100 && ack_request.status == MAV_AURELIA_UTIL_ACK_REQUEST_NEED) {
+            last_ack_ms = now_ms;
+            ack_send();
         }
     }
     processTx();
     processRx();
 }
-/*
-void DroneCAN::uas_id_send()
+
+void DroneCAN::ack_send(void)
 {
-    {
-        if (counter == 3)
-        {
-            uint8_t buffer[DRONECAN_REMOTEID_ARMSTATUS_MAX_SIZE];
-            dronecan_remoteid_ArmStatus arm_status{};
-            const uint8_t status = 3;
-            // Obtener el UAS_ID, recortarlo a 5 caracteres, son 21
-            // uas_id[21]
-            char serial_n[5];
-            strncpy(serial_n, g.uas_id + 9, 5);
+    uint8_t buffer[DRONECAN_AURELIA_UTIL_ACKMESSAGE_MAX_SIZE];
+    dronecan_aurelia_util_AckMessage ack {};
 
-            arm_status.status = status;
-            arm_status.error.len = strlen(serial_n);
-            strncpy((char *)arm_status.error.data, serial_n, sizeof(serial_n));
-            const uint16_t len = dronecan_remoteid_ArmStatus_encode(&arm_status, buffer);
+    memcpy(ack.mac, ack_response.mac, sizeof(ack.mac));
+    memcpy(ack.nonce, ack_response.nonce, sizeof(ack.nonce));
+    memcpy(ack.cipher_text, ack_response.cipher_text, sizeof(ack.cipher_text));
 
-            static uint8_t tx_id;
-            canardBroadcast(&canard,
-                            DRONECAN_REMOTEID_ARMSTATUS_SIGNATURE,
-                            DRONECAN_REMOTEID_ARMSTATUS_ID,
-                            &tx_id,
-                            CANARD_TRANSFER_PRIORITY_LOWEST,
-                            (void *)buffer,
-                            len);
-            counter = 0;
-        }
-        counter++;
-    }
-}*/
+    const uint16_t len = dronecan_aurelia_util_AckMessage_encode(&ack, buffer);
+    static uint8_t tx_id;
+    canardBroadcast(&canard,
+                    DRONECAN_AURELIA_UTIL_ACKMESSAGE_SIGNATURE,
+                    DRONECAN_AURELIA_UTIL_ACKMESSAGE_ID,
+                    &tx_id,
+                    CANARD_TRANSFER_PRIORITY_LOW,
+                    (void*)buffer,
+                    len);
+}
 
 void DroneCAN::node_status_send(void)
 {
@@ -148,22 +145,22 @@ void DroneCAN::node_status_send(void)
 
 void DroneCAN::arm_status_send(void)
 {
-    uint8_t buffer[DRONECAN_REMOTEID_ARMSTATUS_MAX_SIZE];
-    dronecan_remoteid_ArmStatus arm_status {};
+    uint8_t buffer[DRONECAN_AURELIA_REMOTEID_STATUS_MAX_SIZE];
+    dronecan_aurelia_remoteid_Status arm_status {};
 
-    const uint8_t status = parse_fail==nullptr? MAV_ODID_ARM_STATUS_GOOD_TO_ARM:MAV_ODID_ARM_STATUS_PRE_ARM_FAIL_GENERIC;
+    const uint8_t status = fl_status;
     const char *reason = parse_fail==nullptr?"":parse_fail;
 
     arm_status.status = status;
     arm_status.error.len = strlen(reason);
     strncpy((char*)arm_status.error.data, reason, sizeof(arm_status.error.data));
 
-    const uint16_t len = dronecan_remoteid_ArmStatus_encode(&arm_status, buffer);
+    const uint16_t len = dronecan_aurelia_remoteid_Status_encode(&arm_status, buffer);
 
     static uint8_t tx_id;
     canardBroadcast(&canard,
-                    DRONECAN_REMOTEID_ARMSTATUS_SIGNATURE,
-                    DRONECAN_REMOTEID_ARMSTATUS_ID,
+                    DRONECAN_AURELIA_REMOTEID_STATUS_SIGNATURE,
+                    DRONECAN_AURELIA_REMOTEID_STATUS_ID,
                     &tx_id,
                     CANARD_TRANSFER_PRIORITY_LOW,
                     (void*)buffer,
@@ -217,6 +214,10 @@ void DroneCAN::onTransferReceived(CanardInstance* ins,
     case DRONECAN_REMOTEID_SECURECOMMAND_ID:
         handle_SecureCommand(ins, transfer);
         break;
+    case DRONECAN_AURELIA_UTIL_ACKREQUEST_ID:
+        //Serial.printf("DroneCAN: got ACK Request\n");
+        handle_AckRequest(transfer);
+        break;
     case DRONECAN_AURELIA_UTIL_FLTTIME_ID:
         //Serial.printf("DroneCAN: got FltTime\n");
         handle_FltTime(transfer);
@@ -253,6 +254,7 @@ bool DroneCAN::shouldAcceptTransfer(const CanardInstance* ins,
         ACCEPT_ID(DRONECAN_REMOTEID_OPERATORID);
         ACCEPT_ID(DRONECAN_REMOTEID_SYSTEM);
         ACCEPT_ID(DRONECAN_REMOTEID_SECURECOMMAND);
+        ACCEPT_ID(DRONECAN_AURELIA_UTIL_ACKREQUEST);
         ACCEPT_ID(UAVCAN_PROTOCOL_PARAM_GETSET);
         ACCEPT_ID(DRONECAN_AURELIA_UTIL_FLTTIME);
         ACCEPT_ID(DRONECAN_AURELIA_REMOTEID_SERIALNUMBER);
@@ -533,6 +535,16 @@ void DroneCAN::readUniqueID(uint8_t id[6])
 #define IMIN(a,b) ((a)<(b)?(a):(b))
 #define COPY_FIELD(fname) mpkt.fname = pkt.fname
 #define COPY_STR(fname) memcpy(mpkt.fname, pkt.fname.data, IMIN(pkt.fname.len, sizeof(mpkt.fname)))
+
+void DroneCAN::handle_AckRequest(CanardRxTransfer* transfer)
+{
+    Serial.println("Got ack");
+    dronecan_aurelia_util_AckRequest pkt {};
+    auto &mpkt = ack_request;
+    dronecan_aurelia_util_AckRequest_decode(transfer, &pkt);
+    memset(&mpkt, 0, sizeof(mpkt));
+    COPY_FIELD(status);
+}
 
 void DroneCAN::handle_BasicID(CanardRxTransfer* transfer)
 {

@@ -8,6 +8,7 @@
 #include "monocypher.h"
 
 const char *Transport::parse_fail = "uninitialised";
+struct Transport::ack Transport::ack_response = {0,0,0};
 
 uint32_t Transport::last_location_ms;
 uint32_t Transport::last_basic_id_ms;
@@ -27,68 +28,73 @@ mavlink_open_drone_id_system_t Transport::system;
 mavlink_open_drone_id_operator_id_t Transport::operator_id;
 mavlink_aurelia_flt_time_t Transport::flt_time;
 mavlink_aurelia_odid_serial_number_t Transport::serial_number;
+mavlink_aurelia_util_ack_request_t Transport::ack_request;
+uint8_t Transport::fl_status = 0;
 
 Transport::Transport()
 {
 }
 
 /*
-  check we are OK to arm
+  check we are OK to fly
  */
-uint8_t Transport::arm_status_check(const char *&reason)
+uint8_t Transport::status_check(const char *&reason)
 {
     const uint32_t max_age_location_ms = 3000;
     const uint32_t max_age_other_ms = 22000;
     const uint32_t now_ms = millis();
 
-    uint8_t status = MAV_ODID_ARM_STATUS_PRE_ARM_FAIL_GENERIC;
+    uint8_t status = MAV_AURELIA_CHECK_STATUS_FAIL_GENERIC;
 
     //return status OK if we have enabled the force arm option
     if (g.options & OPTIONS_FORCE_ARM_OK) {
-        status = MAV_ODID_ARM_STATUS_GOOD_TO_ARM;
+        status = MAV_AURELIA_CHECK_STATUS_GOOD_TO_ARM;
         return status;
     }
 
     String ret = "";
 
-    if (last_location_ms == 0 || now_ms - last_location_ms > max_age_location_ms) {
+    if (last_location_ms == 0 || now_ms - last_location_ms > max_age_location_ms || location.latitude == 0 && location.longitude == 0) {
         ret += "LOC ";
+        status = MAV_AURELIA_CHECK_STATUS_FAIL_GPS;
     }
-    if (!g.have_basic_id_info()) {
+    if (!g.have_basic_id_info() && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
         // if there is no basic ID data stored in the parameters give warning. If basic ID data are streamed to RID device,
         // it will store them in the parameters
         ret += "ID ";
     }
 
-    if (last_self_id_ms == 0  || now_ms - last_self_id_ms > max_age_other_ms) {
+    if ((last_self_id_ms == 0  || now_ms - last_self_id_ms > max_age_other_ms) && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
         ret += "SELF_ID ";
     }
 
-    if (last_operator_id_ms == 0 || now_ms - last_operator_id_ms > max_age_other_ms) {
+    if ((last_operator_id_ms == 0 || now_ms - last_operator_id_ms > max_age_other_ms) && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
         ret += "OP_ID ";
     }
 
-    if (last_system_ms == 0 || now_ms - last_system_ms > max_age_location_ms) {
+    if ((last_system_ms == 0 || now_ms - last_system_ms > max_age_location_ms) && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
         // we use location age limit for system as the operator location needs to come in as fast
         // as the vehicle location for FAA standard
-        ret += "SYS ";//este, ni siquiera lo manda el cube
+        ret += "SYS ";
     }
 
-    if (location.latitude == 0 && location.longitude == 0) {
-        ret += "LOC ";
+    if ((system.operator_latitude == 0 && system.operator_longitude == 0) && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
+        ret += "OP_LOC ";
     }
-
-    if (system.operator_latitude == 0 && system.operator_longitude == 0) {
-        ret += "OP_LOC ";//este, ni siquiera lo manda el cube
-    }
-    if (serial_number.serial_number == 0 || now_ms - last_serial_number_ms > max_age_other_ms) {
+    if ((serial_number.serial_number == 0 || now_ms - last_serial_number_ms > max_age_other_ms) && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
         ret += "SN ";
-    }else if (serial_number.serial_number != g.get_serial_number()) {
-        ret += "Mismatching RID";
+    }else if (serial_number.serial_number != g.get_serial_number() && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
+        ret += "BAD_RID ";
+    }
+    flying_banned fb = ac.is_flying_allowed();
+    if (fb.allowed!=FLIGHT_BANNED_REASON::NO_BAN)
+    {
+        ret += fb.reason;
+        status = MAV_AURELIA_CHECK_STATUS_FAIL_FLYING_NOT_ALLOWED;
     }
 
     if (ret.length() == 0 && reason == nullptr) {
-        status = MAV_ODID_ARM_STATUS_GOOD_TO_ARM;
+        status = MAV_AURELIA_CHECK_STATUS_GOOD_TO_ARM;
     } else {
         static char return_string[200];
         memset(return_string, 0, sizeof(return_string));
@@ -99,7 +105,15 @@ uint8_t Transport::arm_status_check(const char *&reason)
         reason = return_string;
     }
 
+    fl_status = status;
+
     return status;
+}
+
+void Transport::set_ack_response(uint8_t mac[MAC_LENGTH], uint8_t nonce[NONCE_LENGTH], uint8_t cipher_text[MSG_LENGTH]){
+    memcpy(ack_response.mac, mac, sizeof(ack_response.mac));
+    memcpy(ack_response.nonce, nonce, sizeof(ack_response.nonce));
+    memcpy(ack_response.cipher_text, cipher_text, sizeof(ack_response.cipher_text));
 }
 
 /*
