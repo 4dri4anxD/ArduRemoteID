@@ -44,9 +44,10 @@ Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 #if AP_DRONECAN_ENABLED
 static DroneCAN dronecan;
+FlightChecks flight_checks(dronecan);
 #endif
 
-FlightChecks ac;
+
 DistanceCheck dc;
 
 #if AP_MAVLINK_ENABLED
@@ -67,7 +68,6 @@ static WebInterface webif;
 
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
-//#include <esp_task_wdt.h>
 
 static bool arm_check_ok = false; // goes true for LED arm check status
 static bool pfst_check_ok = false;
@@ -77,16 +77,13 @@ static bool pfst_check_ok = false;
  */
 void setup()
 {
-    //esp_task_wdt_init(10, true);
-    //esp_task_wdt_add(NULL);
     //SDA-SCL, I2C
-    Wire.begin(18,19);
+    Wire.begin(PIN_I2C_SDA,PIN_I2C_SCL);
+
     // disable brownout checking
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 
     g.init();
-
-    
 
     if (g.webserver_enable) {
         // need WiFi for web server
@@ -96,11 +93,14 @@ void setup()
     // Serial for debug printf
     Serial.begin(g.baudrate);
     led_blink(BLINK_TIMES::INIT, Led::LedState::STARTING);
+    led.set_state(Led::LedState::STARTING);
+    led.update();
     // Serial1 for MAVLink
     Serial1.begin(g.baudrate, SERIAL_8N1, PIN_UART_RX, PIN_UART_TX);
-    //display.begin(0x02, SCREEN_ADDRESS);//SSD1306_SWITCHCAPVCC
+    display.begin(0x02, SCREEN_ADDRESS);//SSD1306_SWITCHCAPVCC
+    display.setTextColor(1);
     uint32_t flt_time_rid = g.find("FLT_TIME")->get_uint32();
-    //print_i2c_display(flt_time_rid);
+    print_i2c_display(flt_time_rid);
 
     // set all fields to invalid/initial values
     odid_initUasData(&UAS_data);
@@ -111,6 +111,7 @@ void setup()
 #endif
 #if AP_DRONECAN_ENABLED
     dronecan.init();
+    flight_checks.init();
 #endif
     set_efuses();
     CheckFirmware::check_OTA_running();
@@ -140,13 +141,11 @@ void setup()
 #endif
     pfst_check_ok = true;   // note - this will need to be expanded to better capture PFST test status
     // initially set LED for fail
-    led.set_state(Led::LedState::STARTING);
 
     esp_log_level_set("*", ESP_LOG_DEBUG);
 
     esp_ota_mark_app_valid_cancel_rollback();
 
-    //display.setTextColor(1);
 
     if (!SPIFFS.begin(true))
     {
@@ -155,18 +154,6 @@ void setup()
         return;
     }
 
-    ac.init();
-    /*ac.update_location(54.5205, 25.19735);
-    size_t freeHeap = xPortGetFreeHeapSize();
-    Serial.print("RAM libre: ");
-    Serial.print(freeHeap);
-    Serial.println(" bytes");
-    ac.is_flying_allowed();
-    freeHeap = xPortGetFreeHeapSize();
-    Serial.print("RAM libre: ");
-    Serial.print(freeHeap);
-    Serial.println(" bytes");
-    delay(10000);*/
 }
 
 #define IMIN(x,y) ((x)<(y)?(x):(y))
@@ -223,6 +210,17 @@ String scs_to_min(int hrs, int scs)
     return String(scs - (hrs*60));//test
 }
 
+bool check_flight_area(const char **reason)
+{
+    flying_banned fb = flight_checks.is_flying_allowed();
+    if (fb.allowed!=FLIGHT_BANNED_REASON::NO_BAN)
+    {
+        *reason = fb.reason;
+        return true;
+    }
+    return false;
+}
+
 /*
   check parsing of UAS_data, this checks ranges of values to ensure we
   will produce a valid pack
@@ -237,8 +235,9 @@ static const char *check_parse(void)
         if (encodeLocationMessage(&encoded, &UAS_data.Location) != ODID_SUCCESS) {
             ret += "LOC ";
         }else{
-            ac.update_location(UAS_data.Location.Latitude, UAS_data.Location.Longitude);
-            //ac.update_location(35.839506, 139.683918);
+#if AP_DRONECAN_ENABLED
+            flight_checks.update_location(UAS_data.Location.Latitude, UAS_data.Location.Longitude);
+#endif
         }
     }
     {
@@ -432,13 +431,13 @@ static void set_data(Transport &t)
         g.set_by_name_uint32("FLT_TIME_AUX", flt_time.flt_time);
 
         if (flt_time_flag) {
-            //print_i2c_display(new_time);
+            print_i2c_display(new_time);
             g.set_by_name_uint32("FLT_TIME", new_time);
         }
     }
-
     const char *reason = check_parse();
-    t.status_check(reason);
+    bool fc = check_flight_area(&reason);
+    t.status_check(reason,fc);
     t.set_parse_fail(reason);
 
     arm_check_ok = (reason==nullptr);
@@ -447,7 +446,12 @@ static void set_data(Transport &t)
         arm_check_ok = true;
     }
 
-    led.set_state(pfst_check_ok && arm_check_ok? Led::LedState::ARM_OK : ac.get_files_read() ? Led::LedState::ARM_FAIL : Led::LedState::STARTING);
+#if AP_DRONECAN_ENABLED
+    led.set_state(pfst_check_ok && arm_check_ok? Led::LedState::ARM_OK : 
+    flight_checks.get_files_read() ? Led::LedState::ARM_FAIL : Led::LedState::STARTING);
+#else
+    led.set_state(pfst_check_ok && arm_check_ok? Led::LedState::ARM_OK : Led::LedState::ARM_FAIL);
+#endif
 
     uint32_t now_ms = millis();
     uint32_t location_age_ms = now_ms - t.get_last_location_ms();
@@ -540,6 +544,7 @@ void loop()
             return;
         }
     }
+
 
     if(transport.get_ack_request_status() == MAV_AURELIA_UTIL_ACK_REQUEST_NEED){
         send_ack_response(transport);

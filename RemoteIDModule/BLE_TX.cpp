@@ -58,7 +58,6 @@ uint8_t BLE_TX::dBm_to_tx_power(float dBm) const
         uint8_t level;
         float dBm;
     } dBm_table[] = {
-        { ESP_PWR_LVL_N27,-27 },
         { ESP_PWR_LVL_N24,-24 },
         { ESP_PWR_LVL_N21,-21 },
         { ESP_PWR_LVL_N18,-18 },

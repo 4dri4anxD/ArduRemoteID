@@ -12,6 +12,9 @@
 #define PIN_UART_TX 18
 #define PIN_UART_RX 17
 
+#define PIN_I2C_SDA 45
+#define PIN_I2C_SCL 46
+
 #define WS2812_LED_PIN GPIO_NUM_48
 
 #elif defined(BOARD_ESP32C3_DEV)
@@ -162,19 +165,15 @@
 
 #elif defined(BOARD_AURELIA_RID)
 #define BOARD_ID 24//26
-/*#define PIN_CAN_TX GPIO_NUM_47
-#define PIN_CAN_RX GPIO_NUM_38
-
-#define PIN_UART_TX 18
-#define PIN_UART_RX 17
-
-#define WS2812_LED_PIN GPIO_NUM_48*/
 
 #define PIN_CAN_TX GPIO_NUM_1
 #define PIN_CAN_RX GPIO_NUM_0
 
 #define PIN_UART_TX 4
 #define PIN_UART_RX 5
+
+#define PIN_I2C_SDA 18
+#define PIN_I2C_SCL 19
 
 #define WS2812_LED_PIN GPIO_NUM_3
 #define CAN_APP_NODE_NAME "Aurelia Technologies"
