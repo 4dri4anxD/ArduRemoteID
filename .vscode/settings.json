@@ -14,6 +14,10 @@
         "typeinfo": "cpp",
         "chrono": "cpp",
         "random": "cpp",
-        "limits": "cpp"
+        "limits": "cpp",
+        "array": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp",
+        "initializer_list": "cpp"
     }
 }

@@ -538,7 +538,6 @@ void DroneCAN::readUniqueID(uint8_t id[6])
 
 void DroneCAN::handle_AckRequest(CanardRxTransfer* transfer)
 {
-    Serial.println("Got ack");
     dronecan_aurelia_util_AckRequest pkt {};
     auto &mpkt = ack_request;
     dronecan_aurelia_util_AckRequest_decode(transfer, &pkt);

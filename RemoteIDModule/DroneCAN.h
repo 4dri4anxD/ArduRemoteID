@@ -1,3 +1,4 @@
+#pragma once
 
 #include "CANDriver.h"
 #include "transport.h"
@@ -17,7 +18,7 @@
 #define CAN_POOL_SIZE 4096
 #define HW_VERSION_MAJOR 2
 #define HW_VERSION_MINOR 1
-#define SW_VERSION_LAST 3
+#define SW_VERSION_LAST 0
 
 class DroneCAN : public Transport {
 public:

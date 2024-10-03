@@ -6,3 +6,6 @@ git-version.h
 romfs_files.h
 arduino-cli_0.27.1_Linux_64bit.tar.gz
 ./arduino-cli_0.27.1_Linux_64bit.tar.gz
+RemoteIDModule/cipher_config.h
+RemoteIDModule/*.bin
+RemoteIDModule/build-ESP32S3_DEV

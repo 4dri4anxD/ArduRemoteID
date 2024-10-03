@@ -5,10 +5,23 @@
 
 #include "mavlink_msgs.h"
 #include "cipher_config.h"
-#include <FS.h>
-#include "flight_checker.h"
 
 #define READ_FAIL_MAX 30
+
+enum class FLIGHT_BANNED_REASON : uint8_t
+{
+    NO_BAN = 0,
+    AIRPORT = 1,
+    COUNTRY = 2,
+    FILE_ERROR = 3,
+    GPS = 4,
+};
+
+struct flying_banned
+{
+    FLIGHT_BANNED_REASON allowed;
+    char reason[50];
+};
 
 /*
   abstraction for opendroneid transports
@@ -18,7 +31,7 @@ public:
     Transport();
     virtual void init(void) = 0;
     virtual void update(void) = 0;
-    uint8_t status_check(const char *&reason);
+    uint8_t status_check(const char *&reason, bool fc);
 
     const mavlink_open_drone_id_location_t &get_location(void) const {
         return location;
@@ -74,6 +87,10 @@ public:
         return parse_fail;
     }
 
+    void set_fl_status(uint8_t new_status){
+        fl_status = new_status;
+    }
+
     static uint8_t read_file_counter;
     
 protected:
@@ -119,6 +136,4 @@ protected:
                          const uint8_t *data);
 
     uint8_t session_key[8];
-
-    FlightChecks ac;
 };

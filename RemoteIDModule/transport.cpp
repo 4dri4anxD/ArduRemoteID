@@ -38,19 +38,26 @@ Transport::Transport()
 /*
   check we are OK to fly
  */
-uint8_t Transport::status_check(const char *&reason)
+uint8_t Transport::status_check(const char *&reason, bool fc)
 {
+    uint8_t status = MAV_AURELIA_CHECK_STATUS_FAIL_GENERIC;
+
+     //return status OK if we have enabled the force arm option
+    if (g.options & OPTIONS_FORCE_ARM_OK) {
+        status = MAV_AURELIA_CHECK_STATUS_GOOD_TO_ARM;
+        fl_status = status;
+        return status;
+    }
+
+    if(fc){
+        status = MAV_AURELIA_CHECK_STATUS_FAIL_FLYING_NOT_ALLOWED;
+        fl_status = status;
+        return status;
+    }
+
     const uint32_t max_age_location_ms = 3000;
     const uint32_t max_age_other_ms = 22000;
     const uint32_t now_ms = millis();
-
-    uint8_t status = MAV_AURELIA_CHECK_STATUS_FAIL_GENERIC;
-
-    //return status OK if we have enabled the force arm option
-    if (g.options & OPTIONS_FORCE_ARM_OK) {
-        status = MAV_AURELIA_CHECK_STATUS_GOOD_TO_ARM;
-        return status;
-    }
 
     String ret = "";
 
@@ -85,12 +92,6 @@ uint8_t Transport::status_check(const char *&reason)
         ret += "SN ";
     }else if (serial_number.serial_number != g.get_serial_number() && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
         ret += "BAD_RID ";
-    }
-    flying_banned fb = ac.is_flying_allowed();
-    if (fb.allowed!=FLIGHT_BANNED_REASON::NO_BAN)
-    {
-        ret += fb.reason;
-        status = MAV_AURELIA_CHECK_STATUS_FAIL_FLYING_NOT_ALLOWED;
     }
 
     if (ret.length() == 0 && reason == nullptr) {
