@@ -13,8 +13,9 @@ enum class FLIGHT_BANNED_REASON : uint8_t
     NO_BAN = 0,
     AIRPORT = 1,
     COUNTRY = 2,
-    FILE_ERROR = 3,
-    GPS = 4,
+    PRISON = 3,
+    FILE_ERROR = 4,
+    GPS = 5,
 };
 
 struct flying_banned

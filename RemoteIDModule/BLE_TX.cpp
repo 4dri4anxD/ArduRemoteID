@@ -16,7 +16,6 @@
 #include "parameters.h"
 
 
-
 //interval min/max are configured for 1 Hz update rate. Somehow dynamic setting of these fields fails
 //shorter intervals lead to more BLE transmissions. This would result in increased power consumption and can lead to more interference to other radio systems.
 static esp_ble_gap_ext_adv_params_t legacy_adv_params = {
