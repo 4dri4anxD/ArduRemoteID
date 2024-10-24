@@ -13,14 +13,20 @@ uint16_t FlightChecks::airport_coords_counter;
 uint16_t FlightChecks::airport_coords_size;
 AirportCoordinate *FlightChecks::airport_coords = nullptr;
 
+uint16_t FlightChecks::prison_coords_counter;
+uint16_t FlightChecks::prison_coords_size;
+Coordinate *FlightChecks::prison_coords = nullptr;
+
 bool FlightChecks::files_read;
 
 void FlightChecks::init()
 {
     country_coords_size = 16;
     airport_coords_size = 16;
+    prison_coords_size = 16;
     country_coords_counter = 0;
     airport_coords_counter = 0;
+    prison_coords_counter = 0;
     files_read = false;
     origin = {0, 0};
     if (country_coords != nullptr)
@@ -31,8 +37,13 @@ void FlightChecks::init()
     {
         free(airport_coords);
     }
+    if (prison_coords != nullptr)
+    {
+        free(prison_coords);
+    }
     country_coords = (Coordinate *)malloc(country_coords_size * sizeof(Coordinate));
     airport_coords = (AirportCoordinate *)malloc(airport_coords_size * sizeof(AirportCoordinate));
+    prison_coords = (Coordinate *)malloc(prison_coords_size * sizeof(Coordinate));
 }
 
 bool FlightChecks::check_for_near_airports()
@@ -71,6 +82,42 @@ bool FlightChecks::check_for_near_airports()
     return true;
 }
 
+bool FlightChecks::check_for_near_prisons()
+{//Reads a file with bunch of prisons and only save the ones that the drone can reach in an object array
+    File full_prison_file = SPIFFS.open(FULL_PRISON_LIST, FILE_READ);
+    if (!full_prison_file)
+    {
+        Serial.println("Failed to open file");
+        return false;
+    }
+
+    uint32_t last_wdt_reset = millis();
+
+    while (full_prison_file.available())
+    {
+        String line = full_prison_file.readStringUntil('\n');
+        Coordinate coord = parse_coordinate(line);
+        if (dc.haversine(origin.lat, origin.lon, coord.lat, coord.lon) < MAX_DRONE_DISTANCE && prison_coords_size < MAX_CLOSE_PRISON_SIZE)
+        {
+            if (prison_coords_counter >= prison_coords_size)
+            {
+                if (!double_coords_array(COORDS_ARRAY_ID::PRISON))
+                    return false;
+            }
+
+            prison_coords[prison_coords_counter] = coord;
+            //Debug
+            Serial.printf("Saved prison: %.7f,%.7f\n", prison_coords[prison_coords_counter].lat, prison_coords[prison_coords_counter].lon);
+            prison_coords_counter++;
+            if (!check_prisons)
+                check_prisons = true;
+        }
+        reset_wdt(&last_wdt_reset);
+    }
+    full_prison_file.close();
+    return true;
+}
+
 void FlightChecks::reset_wdt(uint32_t *last_reset)
 {// Avoid wdt being triggered by setting a delay
     uint32_t now = millis();
@@ -83,6 +130,18 @@ void FlightChecks::reset_wdt(uint32_t *last_reset)
         delay(1);
         *last_reset = now;
     }
+}
+
+bool FlightChecks::is_flying_near_a_prison()
+{//Checks if flying inside a prison area
+    for (uint16_t i = 0; i < prison_coords_counter; i++)
+    {
+        if (dc.haversine(origin.lat, origin.lon, prison_coords[i].lat, prison_coords[i].lon) < MIN_PRISON_DISTANCE)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool FlightChecks::is_flying_near_an_airport()
@@ -286,7 +345,11 @@ bool FlightChecks::double_coords_array(COORDS_ARRAY_ID coords_id)
         break;
 
     case COORDS_ARRAY_ID::PRISON:
-        return false;
+        coord_ptr = (void **)&prison_coords;
+        //Duplicate size
+        prison_coords_size *= 2;
+        coord_size = prison_coords_size;
+        element_size = sizeof(Coordinate);
         break;
 
     default:
@@ -531,6 +594,10 @@ flying_banned FlightChecks::is_flying_allowed()
             {
                 passed &= check_for_near_countries();
             }
+            if (!(g.options & OPTIONS_BYPASS_PRISON_CHECKS))
+            {
+                passed &= check_for_near_prisons();
+            }
             if (passed)
             {
                 //Debug
@@ -544,6 +611,7 @@ flying_banned FlightChecks::is_flying_allowed()
             {
                 free(country_coords);
                 free(airport_coords);
+                free(prison_coords);
                 fb.allowed = FLIGHT_BANNED_REASON::FILE_ERROR;
                 strncpy(fb.reason, "FILE", sizeof(fb.reason) - 1);
                 return fb;
@@ -555,6 +623,13 @@ flying_banned FlightChecks::is_flying_allowed()
     {
         fb.allowed = FLIGHT_BANNED_REASON::AIRPORT;
         strncpy(fb.reason, "AIRPORT", sizeof(fb.reason) - 1);
+        return fb;
+    }
+
+    if (!(g.options & OPTIONS_BYPASS_PRISON_CHECKS) && (check_prisons ? is_flying_near_a_prison() : false))
+    {
+        fb.allowed = FLIGHT_BANNED_REASON::PRISON;
+        strncpy(fb.reason, "PRISON", sizeof(fb.reason) - 1);
         return fb;
     }
 

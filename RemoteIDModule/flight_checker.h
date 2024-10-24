@@ -9,6 +9,7 @@
 
 #define FULL_AIRPORT_LIST "/world_airport_list.txt"
 #define FULL_COUNTRY_LIST "/banned_countries.txt"
+#define FULL_PRISON_LIST "/world_prison_list.txt"
 
 #define LINE_LENGHT 200 //Distance (in Km) to which a new point will be projected to close the polygon
 #define MAX_DRONE_DISTANCE 55 // Maximum distance (in km) that the drone can travel before running out of battery
@@ -16,7 +17,9 @@
 
 #define MAX_CLOSE_AIRPORTS_SIZE 1024 //Maximum quantity of elements in airport coord object
 #define MAX_CLOSE_BORDERS_SIZE 1024 //Maximum quantity of elements in country coord object
+#define MAX_CLOSE_PRISON_SIZE 1024 //Maximum quantity of elements in prison coord object
 
+#define MIN_PRISON_DISTANCE 2 //The closest distance a drone could be without firing near prison event
 /*
 Airports types
 0-Large airport
@@ -37,7 +40,7 @@ enum class COORDS_ARRAY_ID : uint8_t
 };
 
 typedef struct
-{//For countries
+{//For countries and prisons
     double lat;
     double lon;
 } Coordinate;
@@ -69,9 +72,11 @@ public:
 
 private:
     bool check_for_near_airports();
+    bool check_for_near_prisons();
     bool check_for_near_countries();
 
     bool is_flying_near_an_airport();
+    bool is_flying_near_a_prison();
     uint8_t is_inside_polygon_file(File near_countries_file);
     bool is_inside_polygon(uint8_t offset = 0);
 
@@ -96,6 +101,7 @@ private:
     static bool files_read;
     bool check_airports = false;
     bool check_countries = false;
+    bool check_prisons = false;
     uint8_t is_inside_banned_country = 0;
 
     static Coordinate origin;
@@ -107,6 +113,10 @@ private:
     static uint16_t airport_coords_counter;
     static uint16_t airport_coords_size;
     static AirportCoordinate *airport_coords;
+
+    static uint16_t prison_coords_counter;
+    static uint16_t prison_coords_size;
+    static Coordinate *prison_coords;
 
     DistanceCheck dc;
     Transport &t;

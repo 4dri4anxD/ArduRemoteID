@@ -178,6 +178,21 @@
 #define WS2812_LED_PIN GPIO_NUM_3
 #define CAN_APP_NODE_NAME "Aurelia Technologies"
 
+#elif defined(BOARD_AURELIA_RID_S3)
+#define BOARD_ID 25//26
+
+#define PIN_CAN_TX GPIO_NUM_47
+#define PIN_CAN_RX GPIO_NUM_38
+
+#define PIN_UART_TX 18
+#define PIN_UART_RX 17
+
+#define PIN_I2C_SDA 45
+#define PIN_I2C_SCL 46
+
+#define WS2812_LED_PIN GPIO_NUM_48
+#define CAN_APP_NODE_NAME "Aurelia Technologies"
+
 #else
 #error "unsupported board"
 #endif

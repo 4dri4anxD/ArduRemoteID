@@ -16,7 +16,7 @@ export PATH := $(HOME)/.local/bin:$(PATH)
 
 .PHONY: headers spiffs
 
-all: headers spiffs aurelia-rid esp32s3dev esp32c3dev bluemark-db200 bluemark-db110 jw-tbd mro-rid jwrid-esp32s3 bluemark-db202 bluemark-db210 bluemark-db203 holybro-RemoteID CUAV-RID
+all: headers spiffs aurelia-rid aurelia-rid-s3 esp32s3dev esp32c3dev bluemark-db200 bluemark-db110 jw-tbd mro-rid jwrid-esp32s3 bluemark-db202 bluemark-db210 bluemark-db203 holybro-RemoteID CUAV-RID
 
 esp32s3dev: CHIP=esp32s3
 esp32s3dev: ArduRemoteID-ESP32S3_DEV.bin
@@ -56,6 +56,9 @@ CUAV-RID: ArduRemoteID-CUAV_RID.bin
 
 aurelia-rid: CHIP=esp32c3
 aurelia-rid: ArduRemoteID-AURELIA_RID.bin
+
+aurelia-rid-s3: CHIP=esp32s3
+aurelia-rid-s3: ArduRemoteID-AURELIA_RID_S3.bin
 
 setup:
 	@echo "Installing ESP32 support"
