@@ -177,7 +177,6 @@ void DroneCAN::onTransferReceived(CanardInstance* ins,
         }
         return;
     }
-
     const uint32_t now_ms = millis();
     switch (transfer->data_type_id) {
     case UAVCAN_PROTOCOL_GETNODEINFO_ID:

@@ -9,7 +9,7 @@ ESPTOOL=$(ESP32_TOOLS)/esptool.py
 ESP32_FQBN=esp32:esp32:$(CHIP)
 SERDEV := $(wildcard /dev/serial/by-id/usb-Espressif_*)
 ARDUINO_CLI=../bin/arduino-cli
-APP_PARTITION_SIZE=1572864
+APP_PARTITION_SIZE=1966080
 
 # ensure python tools are in $PATH
 export PATH := $(HOME)/.local/bin:$(PATH)
@@ -56,6 +56,7 @@ CUAV-RID: ArduRemoteID-CUAV_RID.bin
 
 aurelia-rid: CHIP=esp32c3
 aurelia-rid: ArduRemoteID-AURELIA_RID.bin
+aurelia-rid: BOARD_ID=24
 
 aurelia-rid-s3: CHIP=esp32s3
 aurelia-rid-s3: ArduRemoteID-AURELIA_RID_S3.bin
@@ -74,7 +75,8 @@ headers: gitversion
 
 spiffs: 
 	@echo "Generating spiffs"
-	@../scripts/spiffsgen.py 0x390000 airport_check/ spiffs/spiffs_gen.bin
+	@../scripts/spiffsgen.py 0x3D0000 airport_check/ spiffs/spiffs_gen.bin keys/AureliaKeys_private_key.dat 25
+# @../scripts/sign_fw.py spiffs/spiffs_gen.bin keys/AureliaKeys_private_key.dat 25 --fill
 
 romfs_files.h: web/*.html web/js/*.js web/styles/*css web/images/*.jpg public_keys/*.dat
 	@../scripts/make_romfs.py romfs_files.h web/*.html web/js/*.js web/styles/*css web/images/*.jpg public_keys/*.dat
@@ -86,7 +88,7 @@ ArduRemoteID-%.bin: gitversion *.cpp *.ino *.h romfs_files.h
 	@$(ARDUINO_CLI) compile -b esp32:esp32:$(CHIP):FlashSize=8M,FlashMode=dio --export-binaries --build-property build.extra_flags="-DBOARD_$* -DESP32" --build-property upload.maximum_size=$(APP_PARTITION_SIZE)
 	@cp build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bin ArduRemoteID_$*_OTA.bin
 	@echo "Merging $*"
-	@python3 $(ESPTOOL) --chip $(CHIP) merge_bin -o ArduRemoteID-$*.bin --flash_size 8MB 0x0 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bootloader.bin 0x8000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.partitions.bin 0xe000 $(BOOT_APP)/partitions/boot_app0.bin 0x10000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bin 0x314000 spiffs/spiffs_gen.bin
+	@python3 $(ESPTOOL) --chip $(CHIP) merge_bin -o ArduRemoteID-$*.bin --flash_size 8MB 0x0 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bootloader.bin 0x8000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.partitions.bin 0xe000 $(BOOT_APP)/partitions/boot_app0.bin 0x10000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bin 0x3D4000 spiffs/spiffs_gen.bin
 	@mv build build-$*
 
 boards:
@@ -112,3 +114,4 @@ submodule_update:
 clean:
 	rm -rf ..esp32* *.bin build* romfs_files.h
 
+# @python3 $(ESPTOOL) --chip $(CHIP) merge_bin -o ArduRemoteID_$*_OTA.bin 0x10000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bin 0x314000 spiffs/spiffs_gen.bin
