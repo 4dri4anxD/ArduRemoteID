@@ -18,6 +18,8 @@
         "array": "cpp",
         "hash_map": "cpp",
         "hash_set": "cpp",
-        "initializer_list": "cpp"
+        "initializer_list": "cpp",
+        "bitset": "cpp",
+        "utility": "cpp"
     }
 }

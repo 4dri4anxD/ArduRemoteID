@@ -181,8 +181,8 @@
 #elif defined(BOARD_AURELIA_RID_S3)
 #define BOARD_ID 25//26
 
-#define PIN_CAN_TX GPIO_NUM_47
-#define PIN_CAN_RX GPIO_NUM_38
+#define PIN_CAN_TX GPIO_NUM_42
+#define PIN_CAN_RX GPIO_NUM_47
 
 #define PIN_UART_TX 18
 #define PIN_UART_RX 17

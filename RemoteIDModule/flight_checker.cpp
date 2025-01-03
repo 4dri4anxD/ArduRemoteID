@@ -44,14 +44,27 @@ void FlightChecks::init()
     country_coords = (Coordinate *)malloc(country_coords_size * sizeof(Coordinate));
     airport_coords = (AirportCoordinate *)malloc(airport_coords_size * sizeof(AirportCoordinate));
     prison_coords = (Coordinate *)malloc(prison_coords_size * sizeof(Coordinate));
+    
+    if (!SPIFFS.begin(false))
+    {
+        Serial.println("An Error has occurred while mounting SPIFFS");
+        spiffs_mounted = false;
+    }
 }
 
 bool FlightChecks::check_for_near_airports()
-{//Reads a file with bunch of airports and only save the ones that the drone can reach in an object array
+{ // Reads a file with bunch of airports and only save the ones that the drone can reach in an object array
     File full_airport_file = SPIFFS.open(FULL_AIRPORT_LIST, FILE_READ);
     if (!full_airport_file)
     {
         Serial.println("Failed to open file");
+        delay(1000);
+        return false;
+    }
+
+    if(full_airport_file.size()==0){
+        full_airport_file.close();
+        delay(1000);
         return false;
     }
 
@@ -70,8 +83,8 @@ bool FlightChecks::check_for_near_airports()
             }
 
             airport_coords[airport_coords_counter] = coord;
-            //Debug
-            Serial.printf("Saved: %.7f,%.7f\n", airport_coords[airport_coords_counter].lat, airport_coords[airport_coords_counter].lon);
+            // Debug
+            //Serial.printf("Saved: %.7f,%.7f\n", airport_coords[airport_coords_counter].lat, airport_coords[airport_coords_counter].lon);
             airport_coords_counter++;
             if (!check_airports)
                 check_airports = true;
@@ -83,11 +96,18 @@ bool FlightChecks::check_for_near_airports()
 }
 
 bool FlightChecks::check_for_near_prisons()
-{//Reads a file with bunch of prisons and only save the ones that the drone can reach in an object array
+{ // Reads a file with bunch of prisons and only save the ones that the drone can reach in an object array
     File full_prison_file = SPIFFS.open(FULL_PRISON_LIST, FILE_READ);
     if (!full_prison_file)
     {
         Serial.println("Failed to open file");
+        delay(1000);
+        return false;
+    }
+
+    if(full_prison_file.size()==0){
+        full_prison_file.close();
+        delay(1000);
         return false;
     }
 
@@ -106,8 +126,8 @@ bool FlightChecks::check_for_near_prisons()
             }
 
             prison_coords[prison_coords_counter] = coord;
-            //Debug
-            Serial.printf("Saved prison: %.7f,%.7f\n", prison_coords[prison_coords_counter].lat, prison_coords[prison_coords_counter].lon);
+            // Debug
+            //Serial.printf("Saved prison: %.7f,%.7f\n", prison_coords[prison_coords_counter].lat, prison_coords[prison_coords_counter].lon);
             prison_coords_counter++;
             if (!check_prisons)
                 check_prisons = true;
@@ -119,7 +139,7 @@ bool FlightChecks::check_for_near_prisons()
 }
 
 void FlightChecks::reset_wdt(uint32_t *last_reset)
-{// Avoid wdt being triggered by setting a delay
+{ // Avoid wdt being triggered by setting a delay
     uint32_t now = millis();
     if (now - *last_reset > 500)
     {
@@ -133,7 +153,7 @@ void FlightChecks::reset_wdt(uint32_t *last_reset)
 }
 
 bool FlightChecks::is_flying_near_a_prison()
-{//Checks if flying inside a prison area
+{ // Checks if flying inside a prison area
     for (uint16_t i = 0; i < prison_coords_counter; i++)
     {
         if (dc.haversine(origin.lat, origin.lon, prison_coords[i].lat, prison_coords[i].lon) < MIN_PRISON_DISTANCE)
@@ -145,7 +165,7 @@ bool FlightChecks::is_flying_near_a_prison()
 }
 
 bool FlightChecks::is_flying_near_an_airport()
-{//Checks if flying inside an airport area
+{ // Checks if flying inside an airport area
     for (uint16_t i = 0; i < airport_coords_counter; i++)
     {
         if (dc.haversine(origin.lat, origin.lon, airport_coords[i].lat, airport_coords[i].lon) < min_distance[airport_coords[i].type])
@@ -157,7 +177,7 @@ bool FlightChecks::is_flying_near_an_airport()
 }
 
 uint8_t FlightChecks::is_inside_polygon_file(File countries_file)
-{//The same as is_inside_polygon, but reading a spiffs file instead of an object array
+{ // The same as is_inside_polygon, but reading a spiffs file instead of an object array
     bool inside = false;
     Coordinate firstCoord;
     Coordinate prevCoord;
@@ -199,7 +219,7 @@ uint8_t FlightChecks::is_inside_polygon_file(File countries_file)
 }
 
 bool FlightChecks::checkEdge(double x, double y, double x1, double y1, double x2, double y2)
-{//Check if an imaginary straight line hits an egde
+{ // Check if an imaginary straight line hits an egde
     if (y > min(y1, y2) && y <= max(y1, y2) && x <= max(x1, x2))
     {
         if (y1 != y2)
@@ -219,12 +239,19 @@ bool FlightChecks::check_for_near_countries()
     File file = SPIFFS.open(FULL_COUNTRY_LIST, FILE_READ);
     if (!file)
     {
-        Serial.println("Failed to open file for reading");
+        Serial.println("Failed to open file");
+        delay(1000);
         return false;
     }
-    //First we check if we're inside a banned country and save which country is
+
+    if(file.size()==0){
+        file.close();
+        delay(1000);
+        return false;
+    }
+    // First we check if we're inside a banned country and save which country is
     is_inside_banned_country = is_inside_polygon_file(file);
-    //Reset the pointer on the file reading
+    // Reset the pointer on the file reading
     file.seek(0);
     bool startedRegion = false;
 
@@ -246,7 +273,7 @@ bool FlightChecks::check_for_near_countries()
         { // New polygon
             if (prevCoord.lat != firstCoord.lat && prevCoord.lon != firstCoord.lon && isFirstFoundCoord)
             { // The current Polygon isn't closed
-                //Check if enough space in object
+                // Check if enough space in object
                 if ((country_coords_counter + EXTRA_COORDINATES_CLOSE_POLYGON) >= country_coords_size)
                 {
                     if (!double_coords_array(COORDS_ARRAY_ID::COUNTRY))
@@ -279,24 +306,24 @@ bool FlightChecks::check_for_near_countries()
             continue;
         }
 
-        //Check if the current coord hits a edge (with vertices on current coord and the previous one)
+        // Check if the current coord hits a edge (with vertices on current coord and the previous one)
         coord2 = parse_coordinate(line);
         if (distance_from_point_to_line_segment(coord1, coord2) < MAX_DRONE_DISTANCE && country_coords_size < MAX_CLOSE_BORDERS_SIZE)
-        {//We only save those coordinates that the drone is able to reach
+        { // We only save those coordinates that the drone is able to reach
             if ((country_coords_counter + 1) >= country_coords_size)
-            {//Double the object if neccesary
+            { // Double the object if neccesary
                 if (!double_coords_array(COORDS_ARRAY_ID::COUNTRY))
                     return false;
             }
             if (coord1.lat != prevCoord.lat && coord1.lon != prevCoord.lon)
-            {//None of the coords are already in the object
+            { // None of the coords are already in the object
                 country_coords[country_coords_counter] = coord1;
                 country_coords_counter++;
                 country_coords[country_coords_counter] = coord2;
                 country_coords_counter++;
             }
             else
-            {//The first coordinate is already in object, we only save the second
+            { // The first coordinate is already in object, we only save the second
                 country_coords[country_coords_counter] = coord2;
                 country_coords_counter++;
             }
@@ -311,7 +338,7 @@ bool FlightChecks::check_for_near_countries()
             prevCoord = coord2;
         }
 
-        //Update the previous coord
+        // Update the previous coord
         coord1 = coord2;
     }
 
@@ -325,12 +352,12 @@ bool FlightChecks::double_coords_array(COORDS_ARRAY_ID coords_id)
     uint16_t coord_size = 0;
     size_t element_size = 0;
 
-    //Assing pointers and size depending on the object
+    // Assing pointers and size depending on the object
     switch (coords_id)
     {
     case COORDS_ARRAY_ID::COUNTRY:
         coord_ptr = (void **)&country_coords;
-        //Duplicate size
+        // Duplicate size
         country_coords_size *= 2;
         coord_size = country_coords_size;
         element_size = sizeof(Coordinate);
@@ -338,7 +365,7 @@ bool FlightChecks::double_coords_array(COORDS_ARRAY_ID coords_id)
 
     case COORDS_ARRAY_ID::AIRPORT:
         coord_ptr = (void **)&airport_coords;
-        //Duplicate size
+        // Duplicate size
         airport_coords_size *= 2;
         coord_size = airport_coords_size;
         element_size = sizeof(AirportCoordinate);
@@ -346,7 +373,7 @@ bool FlightChecks::double_coords_array(COORDS_ARRAY_ID coords_id)
 
     case COORDS_ARRAY_ID::PRISON:
         coord_ptr = (void **)&prison_coords;
-        //Duplicate size
+        // Duplicate size
         prison_coords_size *= 2;
         coord_size = prison_coords_size;
         element_size = sizeof(Coordinate);
@@ -364,7 +391,7 @@ bool FlightChecks::double_coords_array(COORDS_ARRAY_ID coords_id)
         return false;
     }
 
-    //We just double size of the current object
+    // We just double size of the current object
     *coord_ptr = temp_ptr;
     return true;
 }
@@ -372,7 +399,7 @@ bool FlightChecks::double_coords_array(COORDS_ARRAY_ID coords_id)
 bool FlightChecks::is_inside_polygon(uint8_t offset)
 {
     if (country_coords_counter < 3)
-    {//It's not a polygon
+    { // It's not a polygon
         return false;
     }
 
@@ -384,35 +411,34 @@ bool FlightChecks::is_inside_polygon(uint8_t offset)
     for (int i = offset; i < country_coords_counter - 1; i++)
     {
         if (country_coords[i].lat == 0 && country_coords[i].lon == 0)
-        {//We reached the beginning of the next polygon
+        { // We reached the beginning of the next polygon
             firstCoordinate = {0, 0};
             continue;
         }
         next = (i + 1);
         if (country_coords[next].lat == 0 && country_coords[next].lon == 0)
-        {//We reached the end of the current polygon
+        { // We reached the end of the current polygon
             if (checkEdge(origin.lat, origin.lon, country_coords[i].lat, country_coords[i].lon, firstCoordinate.lat, firstCoordinate.lon))
             {
                 count++;
             }
         }
         else
-        {//Process current polygon
+        { // Process current polygon
             if (firstCoordinate.lat == 0 && firstCoordinate.lon == 0)
-            {//Saves the first coordinate
+            { // Saves the first coordinate
                 firstCoordinate.lat = country_coords[i].lat;
                 firstCoordinate.lon = country_coords[i].lon;
             }
 
             if (checkEdge(origin.lat, origin.lon, country_coords[i].lat, country_coords[i].lon, country_coords[next].lat, country_coords[next].lon))
-            {//Checks if the current location hits an edge
+            { // Checks if the current location hits an edge
                 count++;
             }
         }
-        // Serial.printf("Coordenada country %d: lat = %.7f, lon = %.7f\n", i + 1, country_coords[i].lat, country_coords[i].lon);
     }
     if (count % 2 == 1)
-    {//ray-casting algorithm, if the number is odd, then we are inside a polygon
+    { // ray-casting algorithm, if the number is odd, then we are inside a polygon
         inside_generated_polygon = true;
     }
     return inside_generated_polygon;
@@ -445,10 +471,10 @@ void FlightChecks::close_polygon(Coordinate firstCoord, Coordinate lastCoord, ui
 }
 
 void FlightChecks::check_final_polygon(double bearing_origin_midpoint, uint8_t polygon_count, uint8_t offset)
-{   //Checks if the current coordinate is inside or outside the final polygon depending on wether it is on a restricted area
-    bool inside_generated_polygon = is_inside_polygon(offset);//check if is inside the polygon
+{                                                              // Checks if the current coordinate is inside or outside the final polygon depending on wether it is on a restricted area
+    bool inside_generated_polygon = is_inside_polygon(offset); // check if is inside the polygon
     if ((inside_generated_polygon && is_inside_banned_country != polygon_count) || (!inside_generated_polygon && is_inside_banned_country == polygon_count))
-    {//Changes a key coordinate to put in or take out the drone coordinate to the polygon
+    { // Changes a key coordinate to put in or take out the drone coordinate to the polygon
         Coordinate close_polygon_b = destination_point(origin.lat, origin.lon, (LINE_LENGHT * -1), bearing_origin_midpoint);
         country_coords[country_coords_counter - EXTRA_COORDINATES_CLOSE_POLYGON] = close_polygon_b;
     }
@@ -563,26 +589,24 @@ Coordinate FlightChecks::destination_point(double lat, double lon, double distan
     return ret;
 }
 
-flying_banned FlightChecks::is_flying_allowed()
+String FlightChecks::is_flying_allowed()
 {
-    flying_banned fb;
-    fb.allowed = FLIGHT_BANNED_REASON::NO_BAN;
-    strncpy(fb.reason, "", sizeof(fb.reason) - 1);
+    if ((g.options & OPTIONS_BYPASS_AIRPORT_CHECKS) && (g.options & OPTIONS_BYPASS_COUNTRY_CHECKS) && (g.options & OPTIONS_BYPASS_PRISON_CHECKS))
+    { // If by passed
+        return "";
+    }
 
-    if ((g.options & OPTIONS_BYPASS_AIRPORT_CHECKS) && (g.options & OPTIONS_BYPASS_COUNTRY_CHECKS))
-    {//If by passed
-        return fb;
+    if(!spiffs_mounted){
+        return "FS ";
     }
 
     if (origin.lat == 0 && origin.lon == 0)
-    {//If we have no GPS position, then return
-        fb.allowed = FLIGHT_BANNED_REASON::GPS;
-        strncpy(fb.reason, "GPS", sizeof(fb.reason) - 1);
-        return fb;
+    { // If we have no GPS position, then return
+        return "GPS ";
     }
 
     if (!files_read)
-    {//Only enters the first time when powered up
+    { // Only enters the first time when powered up
         if (t.get_ack_request_status() == MAV_AURELIA_UTIL_ACK_REQUEST_DONE)
         {
             bool passed = true;
@@ -600,11 +624,13 @@ flying_banned FlightChecks::is_flying_allowed()
             }
             if (passed)
             {
-                //Debug
+                // Debug
+                /*
                 for (int i = 0; i < country_coords_counter; i++)
                 {
                     Serial.printf("Save country coordinate %d: lat = %.7f, lon = %.7f\n", i + 1, country_coords[i].lat, country_coords[i].lon);
                 }
+                */
                 files_read = true;
             }
             else
@@ -612,34 +638,26 @@ flying_banned FlightChecks::is_flying_allowed()
                 free(country_coords);
                 free(airport_coords);
                 free(prison_coords);
-                fb.allowed = FLIGHT_BANNED_REASON::FILE_ERROR;
-                strncpy(fb.reason, "FILE", sizeof(fb.reason) - 1);
-                return fb;
+                return "FILE ";
             }
         }
     }
 
     if (!(g.options & OPTIONS_BYPASS_AIRPORT_CHECKS) && (check_airports ? is_flying_near_an_airport() : false))
     {
-        fb.allowed = FLIGHT_BANNED_REASON::AIRPORT;
-        strncpy(fb.reason, "AIRPORT", sizeof(fb.reason) - 1);
-        return fb;
+        return "AIRPORT ";
     }
 
     if (!(g.options & OPTIONS_BYPASS_PRISON_CHECKS) && (check_prisons ? is_flying_near_a_prison() : false))
     {
-        fb.allowed = FLIGHT_BANNED_REASON::PRISON;
-        strncpy(fb.reason, "PRISON", sizeof(fb.reason) - 1);
-        return fb;
+        return "PRISON ";
     }
 
     if (!(g.options & OPTIONS_BYPASS_COUNTRY_CHECKS) && (check_countries ? is_inside_polygon() : is_inside_banned_country > 0 ? true
                                                                                                                               : false))
     {
-        fb.allowed = FLIGHT_BANNED_REASON::COUNTRY;
-        strncpy(fb.reason, "COUNTRY", sizeof(fb.reason) - 1);
-        return fb;
+        return "COUNTRY ";
     }
 
-    return fb;
+    return "";
 }

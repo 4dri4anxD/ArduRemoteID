@@ -9,3 +9,6 @@ arduino-cli_0.27.1_Linux_64bit.tar.gz
 RemoteIDModule/cipher_config.h
 RemoteIDModule/*.bin
 RemoteIDModule/build-ESP32S3_DEV
+RemoteIDModule/build-AURELIA_RID_S3
+RemoteIDModule/keys
+RemoteIDModule/keys/*

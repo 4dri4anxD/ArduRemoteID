@@ -56,7 +56,7 @@ class FlightChecks {
 public:
     FlightChecks(Transport &transport) : t(transport) {};
 
-    flying_banned is_flying_allowed();
+    String is_flying_allowed();
     void update_location(double lat, double lon)
     {
         origin.lat = lat;
@@ -102,6 +102,7 @@ private:
     bool check_airports = false;
     bool check_countries = false;
     bool check_prisons = false;
+    bool spiffs_mounted = true;
     uint8_t is_inside_banned_country = 0;
 
     static Coordinate origin;

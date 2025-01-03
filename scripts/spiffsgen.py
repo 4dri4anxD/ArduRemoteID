@@ -9,6 +9,13 @@ import io
 import math
 import os
 import struct
+import sys
+import base64
+try:
+    import monocypher
+except ImportError:
+    print("Please install monocypher with: python3 -m pip install pymonocypher")
+    sys.exit(1)
 
 try:
     import typing
@@ -456,7 +463,7 @@ class SpiffsFS(object):
 
         self.cur_obj_id += 1
 
-    def to_binary(self):  # type: () -> bytes
+    def to_binary(self, key_file, board_id):  # type: () -> bytes
         img = b''
         all_blocks = []
         for block in self.blocks:
@@ -464,16 +471,18 @@ class SpiffsFS(object):
         bix = len(self.blocks)
         if self.build_config.use_magic:
             # Create empty blocks with magic numbers
-            while self.remaining_blocks > 0:
+            counter=0
+            while self.remaining_blocks > 1:
                 block = SpiffsBlock(bix, self.build_config)
                 all_blocks.append(block.to_binary(self.blocks_lim))
                 self.remaining_blocks -= 1
                 bix += 1
         else:
             # Just fill remaining spaces FF's
-            all_blocks.append(b'\xFF' * (self.img_size - len(all_blocks) * self.build_config.block_size))
+            all_blocks.append(b'\xFF' * (self.img_size - len(all_blocks) * self.build_config.block_size)) 
         img += b''.join([blk for blk in all_blocks])
-        return img
+        img_final = sign_spiffs(key_file, img, board_id)
+        return img_final
 
 
 class CustomHelpFormatter(argparse.HelpFormatter):
@@ -493,6 +502,50 @@ class CustomHelpFormatter(argparse.HelpFormatter):
                     return action.help + ' (default: %(default)s)'
         return action.help
 
+def decode_key(ktype, key):
+    ktype += "_KEYV1:"
+    if not key.startswith(ktype):
+        print("Invalid key type")
+        sys.exit(1)
+    return base64.b64decode(key[len(ktype):])
+
+def sign_spiffs(key_file, img, board_id):
+    key_len = 32
+    sig_len = 64
+    descriptor = b'\x43\x2a\xf1\x37\x46\xe2\x75\x19'
+    img_len = len(img)
+    key = decode_key("PRIVATE", open(key_file, 'r').read())
+    if len(key) != key_len:
+        print("Bad key length %u" % len(key))
+        sys.exit(1)
+    desc_len = 80
+    ad_start = len(img)-desc_len
+    if img[ad_start:ad_start+8] == descriptor:
+        print("Image is already signed")
+        sys.exit(1)
+
+    signature = monocypher.signature_sign(key, img)
+    if len(signature) != sig_len:
+        print("Bad signature length %u should be %u" % (len(signature), sig_len))
+        sys.exit(1)
+
+    desc = struct.pack("<II64s", board_id, img_len, signature)
+    img = img + descriptor + desc
+
+    if len(img) != img_len + desc_len:
+        print("Error: incorrect image length")
+        sys.exit(1)
+        
+    print("Filling signature with 0s")
+    length = 0x1000 - desc_len
+    fill_object = b'\x00' * length
+    img = img + fill_object
+    if(len(img)%0x1000!=0):
+        print("Error: incorrect image length")
+        sys.exit(1)
+
+    print("Applying signature")
+    return img
 
 def main():  # type: () -> None
     parser = argparse.ArgumentParser(description='SPIFFS Image Generator',
@@ -506,6 +559,13 @@ def main():  # type: () -> None
 
     parser.add_argument('output_file',
                         help='Created image output file path')
+    
+    parser.add_argument('private_key',
+                        help='Private key to sign file')
+    
+    parser.add_argument('board_id',
+                        type=int,
+                        help='Board id')
 
     parser.add_argument('--page-size',
                         help='Logical page size. Set to value same as CONFIG_SPIFFS_PAGE_SIZE.',
@@ -568,6 +628,7 @@ def main():  # type: () -> None
 
     with open(args.output_file, 'wb') as image_file:
         image_size = int(args.image_size, 0)
+        #image_size = image_size - int(0x1000)
         spiffs_build_default = SpiffsBuildConfig(args.page_size, SPIFFS_PAGE_IX_LEN,
                                                  args.block_size, SPIFFS_BLOCK_IX_LEN, args.meta_len,
                                                  args.obj_name_len, SPIFFS_OBJ_ID_LEN, SPIFFS_SPAN_IX_LEN,
@@ -581,10 +642,11 @@ def main():  # type: () -> None
                 full_path = os.path.join(root, f)
                 spiffs.create_file('/' + os.path.relpath(full_path, args.base_dir).replace('\\', '/'), full_path)
 
-        image = spiffs.to_binary()
-
-        image_file.write(image)
-
+        image = spiffs.to_binary(args.private_key, args.board_id)
+        print(len(image))
+        #image = sign_spiffs(args.private_key,image,args.board_id)
+        
+        image_file.write(image) 
 
 if __name__ == '__main__':
     main()
