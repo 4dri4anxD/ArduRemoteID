@@ -37,6 +37,7 @@ private:
     void init(void);
     bool done_init;
     uint32_t last_led_trig_ms;
+    uint32_t last_extra_led_trig_ms;
     LedState state;
 
 #ifdef WS2812_LED_PIN
