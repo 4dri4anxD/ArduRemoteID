@@ -1,8 +1,10 @@
 #include <Arduino.h>
 #include "led.h"
 #include "board_config.h"
+#include "parameters.h"
 
 Led led;
+
 
 void Led::init(void)
 {
@@ -16,6 +18,18 @@ void Led::init(void)
 #ifdef WS2812_LED_PIN
     pinMode(WS2812_LED_PIN, OUTPUT);
     ledStrip.begin();
+#endif
+#ifdef AIRPORT_LED
+    pinMode(AIRPORT_LED, OUTPUT);
+#endif
+#ifdef COUNTRY_LED
+    pinMode(COUNTRY_LED, OUTPUT);
+#endif
+#ifdef PRISON_LED
+    pinMode(PRISON_LED, OUTPUT);
+#endif
+#ifdef EXTRA_LED
+    pinMode(EXTRA_LED, OUTPUT);
 #endif
 }
 
@@ -41,6 +55,44 @@ void Led::update(void)
         break;
     }
 #endif
+
+    if (now_ms - last_extra_led_trig_ms > 100) {
+#ifdef AIRPORT_LED
+        //Check parameter
+        if (!(g.options & OPTIONS_BYPASS_AIRPORT_CHECKS)){
+            digitalWrite(AIRPORT_LED, HIGH);
+        }
+        else{
+            digitalWrite(AIRPORT_LED, LOW);
+        }
+#endif
+#ifdef COUNTRY_LED
+        if (!(g.options & OPTIONS_BYPASS_COUNTRY_CHECKS)){
+            digitalWrite(COUNTRY_LED, HIGH);
+        }
+        else{
+            digitalWrite(COUNTRY_LED, LOW);
+        }
+#endif
+#ifdef PRISON_LED
+        if (!(g.options & OPTIONS_BYPASS_PRISON_CHECKS)){
+            digitalWrite(PRISON_LED, HIGH);
+        }
+        else{
+            digitalWrite(PRISON_LED, LOW);
+        }
+#endif
+#ifdef EXTRA_LED
+        if (!(g.options & OPTIONS_BYPASS_RID_CHECKS)){
+            digitalWrite(EXTRA_LED, HIGH);
+        }
+        else{
+            digitalWrite(EXTRA_LED, LOW);
+        }
+#endif
+        last_extra_led_trig_ms=now_ms;
+    }
+
 
 #ifdef WS2812_LED_PIN
     ledStrip.clear();

@@ -164,7 +164,7 @@
 #define WS2812_LED_PIN GPIO_NUM_48
 
 #elif defined(BOARD_AURELIA_RID)
-#define BOARD_ID 24//26
+#define BOARD_ID 24
 
 #define PIN_CAN_TX GPIO_NUM_1
 #define PIN_CAN_RX GPIO_NUM_0
@@ -179,7 +179,7 @@
 #define CAN_APP_NODE_NAME "Aurelia Technologies"
 
 #elif defined(BOARD_AURELIA_RID_S3)
-#define BOARD_ID 25//26
+#define BOARD_ID 25
 
 #define PIN_CAN_TX GPIO_NUM_42
 #define PIN_CAN_RX GPIO_NUM_47
@@ -191,6 +191,10 @@
 #define PIN_I2C_SCL 46
 
 #define WS2812_LED_PIN GPIO_NUM_48
+#define AIRPORT_LED GPIO_NUM_11
+#define COUNTRY_LED GPIO_NUM_12
+#define PRISON_LED GPIO_NUM_13
+#define EXTRA_LED GPIO_NUM_14
 #define CAN_APP_NODE_NAME "Aurelia Technologies"
 
 #else
