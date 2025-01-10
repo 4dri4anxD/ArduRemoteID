@@ -463,14 +463,8 @@ static void set_data(Transport &t)
 
     arm_check_ok = (res == nullptr);
 
-    if (g.options & OPTIONS_FORCE_ARM_OK)
-    {
-        arm_check_ok = true;
-    }
-
 #if AP_DRONECAN_ENABLED
-    led.set_state(pfst_check_ok && arm_check_ok ? Led::LedState::ARM_OK : flight_checks.get_files_read() ? Led::LedState::ARM_FAIL
-                                                                                                         : Led::LedState::STARTING);
+    led.set_state(pfst_check_ok && arm_check_ok ? Led::LedState::ARM_OK : flight_checks.get_files_read() ? Led::LedState::ARM_FAIL                                                                                                      : Led::LedState::STARTING);
 #else
     led.set_state(pfst_check_ok && arm_check_ok ? Led::LedState::ARM_OK : Led::LedState::ARM_FAIL);
 #endif

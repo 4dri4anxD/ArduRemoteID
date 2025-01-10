@@ -56,7 +56,6 @@ CUAV-RID: ArduRemoteID-CUAV_RID.bin
 
 aurelia-rid: CHIP=esp32c3
 aurelia-rid: ArduRemoteID-AURELIA_RID.bin
-aurelia-rid: BOARD_ID=24
 
 aurelia-rid-s3: CHIP=esp32s3
 aurelia-rid-s3: ArduRemoteID-AURELIA_RID_S3.bin

@@ -610,15 +610,15 @@ String FlightChecks::is_flying_allowed()
         if (t.get_ack_request_status() == MAV_AURELIA_UTIL_ACK_REQUEST_DONE)
         {
             bool passed = true;
-            if (!(g.options & OPTIONS_BYPASS_AIRPORT_CHECKS))
+            if ((g.options & OPTIONS_BYPASS_AIRPORT_CHECKS))
             {
                 passed &= check_for_near_airports();
             }
-            if (!(g.options & OPTIONS_BYPASS_COUNTRY_CHECKS))
+            if ((g.options & OPTIONS_BYPASS_COUNTRY_CHECKS))
             {
                 passed &= check_for_near_countries();
             }
-            if (!(g.options & OPTIONS_BYPASS_PRISON_CHECKS))
+            if ((g.options & OPTIONS_BYPASS_PRISON_CHECKS))
             {
                 passed &= check_for_near_prisons();
             }

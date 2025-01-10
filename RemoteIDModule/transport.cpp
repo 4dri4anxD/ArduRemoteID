@@ -43,12 +43,13 @@ uint8_t Transport::status_check(const char *&reason)
     uint8_t status = MAV_AURELIA_CHECK_STATUS_FAIL_FLYING_NOT_ALLOWED;
 
      //return status OK if we have enabled the force arm option
-    if (g.options & OPTIONS_FORCE_ARM_OK) {
-        status = MAV_AURELIA_CHECK_STATUS_GOOD_TO_ARM;
+    if ((g.options & OPTIONS_FORCE_ARM_OK)) {
+        if(reason == nullptr){
+            status = MAV_AURELIA_CHECK_STATUS_GOOD_TO_ARM;
+        }
         fl_status = status;
         return status;
     }
-
 
     const uint32_t max_age_location_ms = 3000;
     const uint32_t max_age_other_ms = 22000;
@@ -59,37 +60,37 @@ uint8_t Transport::status_check(const char *&reason)
     if (last_location_ms == 0 || now_ms - last_location_ms > max_age_location_ms || location.latitude == 0 && location.longitude == 0) {
         ret += "LOC ";
     }
-    if (!g.have_basic_id_info() && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
+    if (!g.have_basic_id_info()) {
         // if there is no basic ID data stored in the parameters give warning. If basic ID data are streamed to RID device,
         // it will store them in the parameters
         ret += "ID ";
         status = MAV_AURELIA_CHECK_STATUS_FAIL_GENERIC;
     }
 
-    if ((last_self_id_ms == 0  || now_ms - last_self_id_ms > max_age_other_ms) && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
+    if ((last_self_id_ms == 0  || now_ms - last_self_id_ms > max_age_other_ms)) {
         ret += "SELF_ID ";
         status = MAV_AURELIA_CHECK_STATUS_FAIL_GENERIC;
     }
 
-    if ((last_operator_id_ms == 0 || now_ms - last_operator_id_ms > max_age_other_ms) && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
+    if ((last_operator_id_ms == 0 || now_ms - last_operator_id_ms > max_age_other_ms)) {
         ret += "OP_ID ";
         status = MAV_AURELIA_CHECK_STATUS_FAIL_GENERIC;
     }
 
-    if ((last_system_ms == 0 || now_ms - last_system_ms > max_age_location_ms) && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
+    if ((last_system_ms == 0 || now_ms - last_system_ms > max_age_location_ms)) {
         // we use location age limit for system as the operator location needs to come in as fast
         // as the vehicle location for FAA standard
         ret += "SYS ";
         status = MAV_AURELIA_CHECK_STATUS_FAIL_GENERIC;
     }
 
-    if ((system.operator_latitude == 0 && system.operator_longitude == 0) && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
+    if ((system.operator_latitude == 0 && system.operator_longitude == 0)) {
         ret += "OP_LOC ";
     }
-    if ((serial_number.serial_number == 0 || now_ms - last_serial_number_ms > max_age_other_ms) && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
+    if ((serial_number.serial_number == 0 || now_ms - last_serial_number_ms > max_age_other_ms)) {
         ret += "SN ";
         status = MAV_AURELIA_CHECK_STATUS_FAIL_GENERIC;
-    }else if (serial_number.serial_number != g.get_serial_number() && !(g.options & OPTIONS_BYPASS_RID_CHECKS)) {
+    }else if (serial_number.serial_number != g.get_serial_number()) {
         ret += "BAD_RID ";
         status = MAV_AURELIA_CHECK_STATUS_FAIL_GENERIC;
     }

@@ -59,7 +59,7 @@ void Led::update(void)
     if (now_ms - last_extra_led_trig_ms > 100) {
 #ifdef AIRPORT_LED
         //Check parameter
-        if (!(g.options & OPTIONS_BYPASS_AIRPORT_CHECKS)){
+        if ((g.options & OPTIONS_BYPASS_AIRPORT_CHECKS)){
             digitalWrite(AIRPORT_LED, HIGH);
         }
         else{
@@ -67,7 +67,7 @@ void Led::update(void)
         }
 #endif
 #ifdef COUNTRY_LED
-        if (!(g.options & OPTIONS_BYPASS_COUNTRY_CHECKS)){
+        if ((g.options & OPTIONS_BYPASS_COUNTRY_CHECKS)){
             digitalWrite(COUNTRY_LED, HIGH);
         }
         else{
@@ -75,7 +75,7 @@ void Led::update(void)
         }
 #endif
 #ifdef PRISON_LED
-        if (!(g.options & OPTIONS_BYPASS_PRISON_CHECKS)){
+        if ((g.options & OPTIONS_BYPASS_PRISON_CHECKS)){
             digitalWrite(PRISON_LED, HIGH);
         }
         else{
@@ -83,7 +83,7 @@ void Led::update(void)
         }
 #endif
 #ifdef EXTRA_LED
-        if (!(g.options & OPTIONS_BYPASS_RID_CHECKS)){
+        if ((g.options & OPTIONS_FORCE_ARM_OK)){
             digitalWrite(EXTRA_LED, HIGH);
         }
         else{
