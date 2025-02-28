@@ -45,16 +45,16 @@ void FlightChecks::init()
     airport_coords = (AirportCoordinate *)malloc(airport_coords_size * sizeof(AirportCoordinate));
     prison_coords = (Coordinate *)malloc(prison_coords_size * sizeof(Coordinate));
     
-    if (!SPIFFS.begin(false))
+    /*if (!SPIFFS.begin(false))
     {
         Serial.println("An Error has occurred while mounting SPIFFS");
         spiffs_mounted = false;
-    }
+    }*/
 }
 
 bool FlightChecks::check_for_near_airports()
 { // Reads a file with bunch of airports and only save the ones that the drone can reach in an object array
-    File full_airport_file = SPIFFS.open(FULL_AIRPORT_LIST, FILE_READ);
+    /*File full_airport_file = SPIFFS.open(FULL_AIRPORT_LIST, FILE_READ);
     if (!full_airport_file)
     {
         Serial.println("Failed to open file");
@@ -91,13 +91,13 @@ bool FlightChecks::check_for_near_airports()
         }
         reset_wdt(&last_wdt_reset);
     }
-    full_airport_file.close();
+    full_airport_file.close();*/
     return true;
 }
 
 bool FlightChecks::check_for_near_prisons()
 { // Reads a file with bunch of prisons and only save the ones that the drone can reach in an object array
-    File full_prison_file = SPIFFS.open(FULL_PRISON_LIST, FILE_READ);
+    /*File full_prison_file = SPIFFS.open(FULL_PRISON_LIST, FILE_READ);
     if (!full_prison_file)
     {
         Serial.println("Failed to open file");
@@ -134,7 +134,7 @@ bool FlightChecks::check_for_near_prisons()
         }
         reset_wdt(&last_wdt_reset);
     }
-    full_prison_file.close();
+    full_prison_file.close();*/
     return true;
 }
 
@@ -236,7 +236,7 @@ bool FlightChecks::checkEdge(double x, double y, double x1, double y1, double x2
 
 bool FlightChecks::check_for_near_countries()
 {
-    File file = SPIFFS.open(FULL_COUNTRY_LIST, FILE_READ);
+    /*File file = SPIFFS.open(FULL_COUNTRY_LIST, FILE_READ);
     if (!file)
     {
         Serial.println("Failed to open file");
@@ -342,7 +342,7 @@ bool FlightChecks::check_for_near_countries()
         coord1 = coord2;
     }
 
-    file.close();
+    file.close();*/
     return true;
 }
 
@@ -596,9 +596,9 @@ String FlightChecks::is_flying_allowed()
         return "";
     }
 
-    if(!spiffs_mounted){
-        return "FS ";
-    }
+   // if(!spiffs_mounted){
+    //    return "FS ";
+    //}
 
     if (origin.lat == 0 && origin.lon == 0)
     { // If we have no GPS position, then return

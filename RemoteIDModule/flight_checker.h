@@ -1,10 +1,10 @@
 #pragma once
 
 #include <FS.h>
-#include "SPIFFS.h"
+//#include "SPIFFS.h"
 #include "distance_checker.h"
 #include <math.h>
-#include "spiffs_utils.h"
+//#include "spiffs_utils.h"
 #include "transport.h"
 
 #define FULL_AIRPORT_LIST "/world_airport_list.txt"
@@ -103,7 +103,7 @@ private:
     bool check_airports = false;
     bool check_countries = false;
     bool check_prisons = false;
-    bool spiffs_mounted = true;
+    //bool spiffs_mounted = true;
     uint8_t is_inside_banned_country = 0;
 
     static Coordinate origin;
