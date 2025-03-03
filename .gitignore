@@ -10,5 +10,6 @@ RemoteIDModule/cipher_config.h
 RemoteIDModule/*.bin
 RemoteIDModule/build-ESP32S3_DEV
 RemoteIDModule/build-AURELIA_RID_S3
+RemoteIDModule/build-AURELIA_RID
 RemoteIDModule/keys
 RemoteIDModule/keys/*

@@ -48,8 +48,8 @@ FlightChecks flight_checks(dronecan);
 DistanceCheck dc;
 
 #if AP_MAVLINK_ENABLED
-static MAVLinkSerial mavlink1{Serial1, MAVLINK_COMM_0};
-static MAVLinkSerial mavlink2{Serial, MAVLINK_COMM_1};
+static MAVLinkSerial mavlink1{Serial, MAVLINK_COMM_0};
+static MAVLinkSerial mavlink2{Serial1, MAVLINK_COMM_1};
 #endif
 
 static WiFi_TX wifi;
