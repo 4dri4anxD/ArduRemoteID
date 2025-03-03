@@ -610,15 +610,15 @@ String FlightChecks::is_flying_allowed()
         if (t.get_ack_request_status() == MAV_AURELIA_UTIL_ACK_REQUEST_DONE)
         {
             bool passed = true;
-            if ((g.options & OPTIONS_BYPASS_AIRPORT_CHECKS))
+            if (!(g.options & OPTIONS_BYPASS_AIRPORT_CHECKS))
             {
                 passed &= check_for_near_airports();
             }
-            if ((g.options & OPTIONS_BYPASS_COUNTRY_CHECKS))
+            if (!(g.options & OPTIONS_BYPASS_COUNTRY_CHECKS))
             {
                 passed &= check_for_near_countries();
             }
-            if ((g.options & OPTIONS_BYPASS_PRISON_CHECKS))
+            if (!(g.options & OPTIONS_BYPASS_PRISON_CHECKS))
             {
                 passed &= check_for_near_prisons();
             }
@@ -630,7 +630,18 @@ String FlightChecks::is_flying_allowed()
                 {
                     Serial.printf("Save country coordinate %d: lat = %.7f, lon = %.7f\n", i + 1, country_coords[i].lat, country_coords[i].lon);
                 }
+
+                for (int i = 0; i < prison_coords_counter; i++)
+                {
+                    Serial.printf("Save prison coordinate %d: lat = %.7f, lon = %.7f\n", i + 1, prison_coords[i].lat, prison_coords[i].lon);
+                }
+
+                for (int i = 0; i < airport_coords_counter; i++)
+                {
+                    Serial.printf("Save airpot coordinate %d: lat = %.7f, lon = %.7f\n", i + 1, airport_coords[i].lat, airport_coords[i].lon);
+                }
                 */
+                
                 files_read = true;
             }
             else
@@ -643,18 +654,17 @@ String FlightChecks::is_flying_allowed()
         }
     }
 
-    if (!(g.options & OPTIONS_BYPASS_AIRPORT_CHECKS) && (check_airports ? is_flying_near_an_airport() : false))
+    if (check_airports ? is_flying_near_an_airport() : false)
     {
         return "AIRPORT ";
     }
 
-    if (!(g.options & OPTIONS_BYPASS_PRISON_CHECKS) && (check_prisons ? is_flying_near_a_prison() : false))
+    if (check_prisons ? is_flying_near_a_prison() : false)
     {
         return "PRISON ";
     }
 
-    if (!(g.options & OPTIONS_BYPASS_COUNTRY_CHECKS) && (check_countries ? is_inside_polygon() : is_inside_banned_country > 0 ? true
-                                                                                                                              : false))
+    if (check_countries ? is_inside_polygon() : is_inside_banned_country > 0 ? true: false)
     {
         return "COUNTRY ";
     }

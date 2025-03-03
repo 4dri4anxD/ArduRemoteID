@@ -75,7 +75,6 @@ headers: gitversion
 spiffs: 
 	@echo "Generating spiffs"
 	@../scripts/spiffsgen.py 0x3D0000 airport_check/ spiffs/spiffs_gen.bin keys/AureliaKeys_private_key.dat 25
-# @../scripts/sign_fw.py spiffs/spiffs_gen.bin keys/AureliaKeys_private_key.dat 25 --fill
 
 romfs_files.h: web/*.html web/js/*.js web/styles/*css web/images/*.jpg public_keys/*.dat
 	@../scripts/make_romfs.py romfs_files.h web/*.html web/js/*.js web/styles/*css web/images/*.jpg public_keys/*.dat
@@ -112,5 +111,3 @@ submodule_update:
 
 clean:
 	rm -rf ..esp32* *.bin build* romfs_files.h
-
-# @python3 $(ESPTOOL) --chip $(CHIP) merge_bin -o ArduRemoteID_$*_OTA.bin 0x10000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bin 0x314000 spiffs/spiffs_gen.bin
