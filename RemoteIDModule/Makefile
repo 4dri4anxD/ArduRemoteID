@@ -65,6 +65,7 @@ setup:
 	$(ARDUINO_CLI) core update-index --config-file arduino-cli.yaml
 	$(ARDUINO_CLI) core install esp32:esp32@$(ESP32_VER)
 	$(ARDUINO_CLI) lib install "Adafruit NeoPixel"
+	$(ARDUINO_CLI) lib install "Adafruit SSD1306"
 
 gitversion:
 	@../scripts/git-version.sh
