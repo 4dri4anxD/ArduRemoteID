@@ -175,6 +175,7 @@ void WebInterface::init(void)
         delay(1000);
         ESP.restart();
     }, [this]() {
+#if defined(BOARD_AURELIA_RID_S3)
         HTTPUpload& upload = server.upload();
         static const esp_partition_t *spiffs_partition=esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS,"spiffs");
         if (upload.status == UPLOAD_FILE_START) {
@@ -228,9 +229,18 @@ void WebInterface::init(void)
                 server.sendHeader("Connection", "close");
                 server.send(200, "text/plain","OK");
             }
-            
         }
-    });
+    
+#else
+        led.set_state(Led::LedState::UPDATE_FAIL);
+        led.update();
+        Serial.printf("Update Failed: this hardware version is not compatible\n");
+        server.sendHeader("Connection", "close");
+        server.send(500, "text/plain","FAIL");
+        delay(5000);
+        ESP.restart();
+#endif
+        });
     Serial.printf("WAP started\n");
     server.begin();
 }

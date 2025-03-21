@@ -1,5 +1,6 @@
 #include "distance_checker.h"
 
+#if defined(BOARD_AURELIA_RID_S3)
 double DistanceCheck::toRadians(double degree) {
     return degree * (M_PI / 180.0);
 }
@@ -25,3 +26,4 @@ double DistanceCheck::iE7toFloat(int32_t ie7){
     //return ie7 / 10000000.0;
     return ie7 * 1.0e-7;
 }  
+#endif

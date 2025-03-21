@@ -1,5 +1,6 @@
 #pragma once
 
+#if defined(BOARD_AURELIA_RID_S3)
 #include <FS.h>
 #include "SPIFFS.h"
 #include "distance_checker.h"
@@ -18,20 +19,17 @@
 #define MAX_CLOSE_AIRPORTS_SIZE 1024 //Maximum quantity of elements in airport coord object
 #define MAX_CLOSE_BORDERS_SIZE 1024 //Maximum quantity of elements in country coord object
 #define MAX_CLOSE_PRISON_SIZE 1024 //Maximum quantity of elements in prison coord object
-//3 KM default
-#define MIN_PRISON_DISTANCE 0.030 //The closest distance in km a drone could be without firing near prison event
-/*
-Airports types
-0-Large airport
-1-Medium airport
-2-Small airport
-3-Heliport
-4-Seaplane base
-5-Hot-air balloons base
-6-TEST FIELD
-*/
-// const float min_distance[6] = {4, 0.035, 1, 0.2, 1, 0.5}; // Minimum distance (in km) that the drone must be from each type of airport to be able to fly
-const float min_distance[7] = {0.035, 0.035, 0.035, 0.035, 0.035, 0.035, 0.030}; // Minimum distance (in km) that the drone must be from each type of airport to be able to fly
+
+enum class AIRPORT_TYPE : uint8_t
+{
+    LARGE_AIRPORT = 0,
+    MEDIUM_AIRPORT = 1,
+    SMALL_AIRPORT = 2,
+    HELIPORT = 3,
+    SEAPLANE_BASE = 4,
+    HOTAIR_BALLOON_BASE = 5,
+    TEST_FIELD = 6
+};
 
 enum class COORDS_ARRAY_ID : uint8_t
 {//For resizing objects
@@ -48,7 +46,7 @@ typedef struct
 
 typedef struct
 {//For airports
-    uint8_t type;
+    AIRPORT_TYPE type;
     double lat;
     double lon;
 } AirportCoordinate;
@@ -123,3 +121,4 @@ private:
     DistanceCheck dc;
     Transport &t;
 };
+#endif

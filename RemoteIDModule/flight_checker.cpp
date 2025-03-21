@@ -1,4 +1,6 @@
 #include "flight_checker.h"
+
+#if defined(BOARD_AURELIA_RID_S3)
 #include <Arduino.h>
 #include <stdlib.h>
 #include "parameters.h"
@@ -44,7 +46,7 @@ void FlightChecks::init()
     country_coords = (Coordinate *)malloc(country_coords_size * sizeof(Coordinate));
     airport_coords = (AirportCoordinate *)malloc(airport_coords_size * sizeof(AirportCoordinate));
     prison_coords = (Coordinate *)malloc(prison_coords_size * sizeof(Coordinate));
-    
+
     if (!SPIFFS.begin(false))
     {
         Serial.println("An Error has occurred while mounting SPIFFS");
@@ -62,7 +64,8 @@ bool FlightChecks::check_for_near_airports()
         return false;
     }
 
-    if(full_airport_file.size()==0){
+    if (full_airport_file.size() == 0)
+    {
         full_airport_file.close();
         delay(1000);
         return false;
@@ -84,7 +87,7 @@ bool FlightChecks::check_for_near_airports()
 
             airport_coords[airport_coords_counter] = coord;
             // Debug
-            //Serial.printf("Saved: %.7f,%.7f\n", airport_coords[airport_coords_counter].lat, airport_coords[airport_coords_counter].lon);
+            // Serial.printf("Saved: %.7f,%.7f\n", airport_coords[airport_coords_counter].lat, airport_coords[airport_coords_counter].lon);
             airport_coords_counter++;
             if (!check_airports)
                 check_airports = true;
@@ -105,7 +108,8 @@ bool FlightChecks::check_for_near_prisons()
         return false;
     }
 
-    if(full_prison_file.size()==0){
+    if (full_prison_file.size() == 0)
+    {
         full_prison_file.close();
         delay(1000);
         return false;
@@ -127,7 +131,7 @@ bool FlightChecks::check_for_near_prisons()
 
             prison_coords[prison_coords_counter] = coord;
             // Debug
-            //Serial.printf("Saved prison: %.7f,%.7f\n", prison_coords[prison_coords_counter].lat, prison_coords[prison_coords_counter].lon);
+            // Serial.printf("Saved prison: %.7f,%.7f\n", prison_coords[prison_coords_counter].lat, prison_coords[prison_coords_counter].lon);
             prison_coords_counter++;
             if (!check_prisons)
                 check_prisons = true;
@@ -156,7 +160,7 @@ bool FlightChecks::is_flying_near_a_prison()
 { // Checks if flying inside a prison area
     for (uint16_t i = 0; i < prison_coords_counter; i++)
     {
-        if (dc.haversine(origin.lat, origin.lon, prison_coords[i].lat, prison_coords[i].lon) < MIN_PRISON_DISTANCE)
+        if (dc.haversine(origin.lat, origin.lon, prison_coords[i].lat, prison_coords[i].lon) < g.min_prison_dis)
         {
             return true;
         }
@@ -168,7 +172,36 @@ bool FlightChecks::is_flying_near_an_airport()
 { // Checks if flying inside an airport area
     for (uint16_t i = 0; i < airport_coords_counter; i++)
     {
-        if (dc.haversine(origin.lat, origin.lon, airport_coords[i].lat, airport_coords[i].lon) < min_distance[airport_coords[i].type])
+
+        float min_distance = g.min_test_airport_dis;
+        if (min_distance == 0)
+        {
+            switch (airport_coords[i].type)
+            {
+            case AIRPORT_TYPE::LARGE_AIRPORT:
+                min_distance = g.min_lg_airport_dis;
+                break;
+            case AIRPORT_TYPE::MEDIUM_AIRPORT:
+                min_distance = g.min_md_airport_dis;
+                break;
+            case AIRPORT_TYPE::SMALL_AIRPORT:
+                min_distance = g.min_sm_airport_dis;
+                break;
+            case AIRPORT_TYPE::HELIPORT:
+                min_distance = g.min_hp_airport_dis;
+                break;
+            case AIRPORT_TYPE::SEAPLANE_BASE:
+                min_distance = g.min_sp_airport_dis;
+                break;
+            case AIRPORT_TYPE::HOTAIR_BALLOON_BASE:
+                min_distance = g.min_hb_airport_dis;
+                break;
+            case AIRPORT_TYPE::TEST_FIELD:
+                min_distance = g.min_test_airport_dis;
+                break;
+            }
+        }
+        if (dc.haversine(origin.lat, origin.lon, airport_coords[i].lat, airport_coords[i].lon) < min_distance)
         {
             return true;
         }
@@ -244,7 +277,8 @@ bool FlightChecks::check_for_near_countries()
         return false;
     }
 
-    if(file.size()==0){
+    if (file.size() == 0)
+    {
         file.close();
         delay(1000);
         return false;
@@ -529,7 +563,7 @@ AirportCoordinate FlightChecks::parse_airport_coordinate(String line)
     int secondComma = line.indexOf(',', firstComma + 1);
     if (firstComma != -1 && secondComma != -1)
     {
-        coord.type = line.substring(0, firstComma).toInt();
+        coord.type = static_cast<AIRPORT_TYPE>(line.substring(0, firstComma).toInt());
         coord.lat = line.substring(firstComma + 1, secondComma).toDouble();
         coord.lon = line.substring(secondComma + 1).toDouble();
     }
@@ -596,7 +630,8 @@ String FlightChecks::is_flying_allowed()
         return "";
     }
 
-    if(!spiffs_mounted){
+    if (!spiffs_mounted)
+    {
         return "FS ";
     }
 
@@ -641,7 +676,7 @@ String FlightChecks::is_flying_allowed()
                     Serial.printf("Save airpot coordinate %d: lat = %.7f, lon = %.7f\n", i + 1, airport_coords[i].lat, airport_coords[i].lon);
                 }
                 */
-                
+
                 files_read = true;
             }
             else
@@ -654,20 +689,22 @@ String FlightChecks::is_flying_allowed()
         }
     }
 
-    if (check_airports ? is_flying_near_an_airport() : false)
+    if (check_airports && !(g.options & OPTIONS_BYPASS_AIRPORT_CHECKS) ? is_flying_near_an_airport() : false)
     {
         return "AIRPORT ";
     }
 
-    if (check_prisons ? is_flying_near_a_prison() : false)
+    if (check_prisons && !(g.options & OPTIONS_BYPASS_PRISON_CHECKS) ? is_flying_near_a_prison() : false)
     {
         return "PRISON ";
     }
 
-    if (check_countries ? is_inside_polygon() : is_inside_banned_country > 0 ? true: false)
+    if (check_countries && !(g.options & OPTIONS_BYPASS_COUNTRY_CHECKS) ? is_inside_polygon() : is_inside_banned_country > 0 ? true
+                                                                             : false)
     {
         return "COUNTRY ";
     }
 
     return "";
 }
+#endif

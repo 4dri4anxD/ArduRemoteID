@@ -163,7 +163,7 @@
 
 #define WS2812_LED_PIN GPIO_NUM_48
 
-#elif defined(BOARD_AURELIA_RID)
+#elif defined(BOARD_AURELIA_RID_C3)
 #define BOARD_ID 24
 
 #define PIN_CAN_TX GPIO_NUM_1
