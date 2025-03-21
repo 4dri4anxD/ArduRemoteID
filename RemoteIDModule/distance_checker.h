@@ -1,5 +1,6 @@
 #pragma once
 
+#if defined(BOARD_AURELIA_RID_S3)
 #include <math.h>
 const float EARTH_RADIUS = 6371;
 
@@ -11,3 +12,4 @@ class DistanceCheck{
     private:
         double toRadians(double degree);
 };
+#endif

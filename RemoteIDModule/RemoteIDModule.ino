@@ -29,7 +29,9 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
 #include <math.h>
+#if defined(BOARD_AURELIA_RID_S3)
 #include "flight_checker.h"
+#endif
 #include "distance_checker.h"
 #include "monocypher.h"
 #include "cipher_config.h"
@@ -42,10 +44,11 @@ Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 #if AP_DRONECAN_ENABLED
 static DroneCAN dronecan;
-FlightChecks flight_checks(dronecan);
 #endif
 
-DistanceCheck dc;
+#if defined(BOARD_AURELIA_RID_S3) && AP_DRONECAN_ENABLED
+FlightChecks flight_checks(dronecan);
+#endif
 
 #if AP_MAVLINK_ENABLED
 static MAVLinkSerial mavlink1{Serial, MAVLINK_COMM_0};
@@ -109,7 +112,9 @@ void setup()
 #endif
 #if AP_DRONECAN_ENABLED
     dronecan.init();
-    flight_checks.init();
+#endif
+#if AP_DRONECAN_ENABLED && defined(BOARD_AURELIA_RID_S3)
+flight_checks.init();
 #endif
     set_efuses();
     CheckFirmware::check_OTA_running();
@@ -199,6 +204,7 @@ String scs_to_min(int hrs, int scs)
     return String(scs - (hrs * 60)); // test
 }
 
+#if defined(BOARD_AURELIA_RID_S3)
 const char *check_flight_area()
 {
     String ret = flight_checks.is_flying_allowed();
@@ -211,6 +217,7 @@ const char *check_flight_area()
     }
     return nullptr;
 }
+#endif
 
 /*
   check parsing of UAS_data, this checks ranges of values to ensure we
@@ -229,7 +236,7 @@ static const char *check_parse(void)
         }
         else
         {
-#if AP_DRONECAN_ENABLED
+#if AP_DRONECAN_ENABLED && defined(BOARD_AURELIA_RID_S3)
             flight_checks.update_location(UAS_data.Location.Latitude, UAS_data.Location.Longitude);
 #endif
         }
@@ -456,14 +463,18 @@ static void set_data(Transport &t)
         }
     }
     const char *reason = check_parse();
+#if defined(BOARD_AURELIA_RID_S3)
     const char *flt_check = check_flight_area();
     const char *res = flt_check==nullptr?reason:flt_check;
+#else
+    const char *res = reason;
+#endif
     t.status_check(res);
     t.set_parse_fail(res);
 
     arm_check_ok = (res == nullptr);
 
-#if AP_DRONECAN_ENABLED
+#if AP_DRONECAN_ENABLED && defined(BOARD_AURELIA_RID_S3)
     led.set_state(pfst_check_ok && arm_check_ok ? Led::LedState::ARM_OK : flight_checks.get_files_read() ? Led::LedState::ARM_FAIL                                                                                                      : Led::LedState::STARTING);
 #else
     led.set_state(pfst_check_ok && arm_check_ok ? Led::LedState::ARM_OK : Led::LedState::ARM_FAIL);
