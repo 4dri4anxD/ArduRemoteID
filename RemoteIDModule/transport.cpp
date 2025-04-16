@@ -51,7 +51,7 @@ uint8_t Transport::status_check(const char *&reason)
         return status;
     }
 
-    const uint32_t max_age_location_ms = 3000;
+    const uint32_t max_age_location_ms = 5000;
     const uint32_t max_age_other_ms = 22000;
     const uint32_t now_ms = millis();
 

@@ -76,20 +76,81 @@ void DroneCAN::init(void)
     //1000 0000    0000 0000    0000 0000    0000 0000
     //0111 1111    1111 1111    1111 1111    1111 1000
 
+    //0000 0001    0011 0000    1001 1100    0111 1100 
+
+
+
+     //1001 1000    0100 1110    0011 1110    0000 1010
+     //0000 0000    1001 1000    0100 1110    0011 1110
+     //0000 0000    0000 0000    0100 1110    0011 1110
+     //0100111000111110
+     //20,030
+     //DRONECAN_REMOTEID_BASICID_ID
+
+     //1001 1000    0100 1110    0010 0111    0000 1010
+     //0000 0000    1001 1000    0100 1110    0010 0111
+     //0000 0000    0000 0000    0100 1110    0010 0111
+     //0100111000100111
+     //20,007
+     //?
+
     //1001 1000    0100 1110    0011 1110    0000 1010 
     //1001 1000    0100 1110    0010 0111    0000 1010
+    //                   SUBJECT ID
     //1000 0000    0000 1011    1111 1101    1111 1111
-    //const uint32_t acceptance_code = 0x10000000U<<3;
-    //const uint32_t acceptance_mask = 0x0FFFFFFFU<<3;
+    //             Subject ID
 
-    //0x80000000
-    //0x7FFFFFF8
+    //Before
+    //Code
+    //1000 0000    0000 0000    0000 0000    0000 0000
+    //Mask
+    //0111 1111    1111 1111    1111 1111    1111 1000
+
+    //After
+    //Code
+    //1000 0000    0000 0000    0000 0000    0000 1000
+    //0x80000008
+    //0001 0000    0000 0000    0000 0000    0000 0001
+    //0x10000001<<3
+
+    //Mask
+    //1110 0111    0000 0000    0000 0000    0000 1000
+    //0xE7000008
+    //0001 1100    1110 0000    0000 0000    0000 0001
+    //0x1CE00001<<3
+
+    //Bits:
+    //0
+    //1
+    //2
+    //...
+    //7 Defines if it's broadcast
+    //8 - 23 MSG ID if broadcast
+    //16 - 23 MSG ID if request
+    //29-31 priority
+
+
+    //MSB
+    //3 -> Priority
+    //8 -> Node origin ID
+    //14 -> Service/Subject ID
+    //1 -> Type (RTR)
+    //1 -> Extended Frame Format
+    //LSB
+
+    //const uint32_t acceptance_code = 0x10000000U<<3; 0x80000000
+    //0001 0000    0000 0000    0000 0000    0000 0000
+    //1000 0000    0000 0000    0000 0000    0000 0000
+
+    //const uint32_t acceptance_mask = 0x0FFFFFFFU<<3; //0x7FFFFFF8
+    //0000 1111    1111 1111    1111 1111    1111 1111
+    //0111 1111    1111 1111    1111 1111    1111 1000
 
     //984e270a
     //984e3e0a
     //800bfdff
 
-    const uint32_t acceptance_code = 0x10000000 << 3;      // = 0x80000000
+    const uint32_t acceptance_code = 0x10000000 << 3;
     const uint32_t acceptance_mask = 0xF0000000 << 3;
 
     can_driver.init(1000000, acceptance_code, acceptance_mask);
@@ -366,7 +427,7 @@ void DroneCAN::processRx(void)
 
 uint16_t DroneCAN::extractDataType(uint32_t id)
 {
-    if (extractTransferType(id) == 4)
+    if (extractTransferType(id) == 4)//broadcast
     {
         uint16_t dtid = MSG_TYPE_FROM_ID(id);
         if (SOURCE_ID_FROM_ID(id) == CANARD_BROADCAST_NODE_ID)
@@ -375,7 +436,7 @@ uint16_t DroneCAN::extractDataType(uint32_t id)
         }
         return dtid;
     }
-    else
+    else//any
     {
         return (uint16_t) SRV_TYPE_FROM_ID(id);
     }
@@ -386,15 +447,15 @@ int DroneCAN::extractTransferType(uint32_t id)
     const bool is_service = SERVICE_NOT_MSG_FROM_ID(id);
     if (!is_service)
     {
-        return 4;
+        return 4;//Broadcast
     }
     else if (REQUEST_NOT_RESPONSE_FROM_ID(id) == 1)
     {
-        return 2;
+        return 2;//Request
     }
     else
     {
-        return 1;
+        return 1;//Response
     }
 }
 
