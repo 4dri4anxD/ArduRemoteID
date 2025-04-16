@@ -67,6 +67,8 @@ private:
     void handle_FltTime(CanardRxTransfer* transfer);
     void handle_SerialNumber(CanardRxTransfer* transfer);
     void handle_AckRequest(CanardRxTransfer* transfer);
+    uint16_t extractDataType(uint32_t id);
+    int extractTransferType(uint32_t id);
 
     void can_printf(const char *fmt, ...);
 

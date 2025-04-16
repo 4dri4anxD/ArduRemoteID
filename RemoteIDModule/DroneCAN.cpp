@@ -72,8 +72,25 @@ void DroneCAN::init(void)
       that have a priority number of 16 or higher (which means
       CANARD_TRANSFER_PRIORITY_MEDIUM or lower priority)
     */
-    const uint32_t acceptance_code = 0x10000000U<<3;
-    const uint32_t acceptance_mask = 0x0FFFFFFFU<<3;
+
+    //1000 0000    0000 0000    0000 0000    0000 0000
+    //0111 1111    1111 1111    1111 1111    1111 1000
+
+    //1001 1000    0100 1110    0011 1110    0000 1010 
+    //1001 1000    0100 1110    0010 0111    0000 1010
+    //1000 0000    0000 1011    1111 1101    1111 1111
+    //const uint32_t acceptance_code = 0x10000000U<<3;
+    //const uint32_t acceptance_mask = 0x0FFFFFFFU<<3;
+
+    //0x80000000
+    //0x7FFFFFF8
+
+    //984e270a
+    //984e3e0a
+    //800bfdff
+
+    const uint32_t acceptance_code = 0x10000000 << 3;      // = 0x80000000
+    const uint32_t acceptance_mask = 0xF0000000 << 3;
 
     can_driver.init(1000000, acceptance_code, acceptance_mask);
 
@@ -188,7 +205,8 @@ void DroneCAN::onTransferReceived(CanardInstance* ins,
         esp_restart();
         break;
     case DRONECAN_REMOTEID_BASICID_ID:
-        //Serial.printf("DroneCAN: got BasicID\n");
+        Serial.printf("DroneCAN: got BasicID\n");
+
         handle_BasicID(transfer);
         break;
     case DRONECAN_REMOTEID_LOCATION_ID:
@@ -208,6 +226,7 @@ void DroneCAN::onTransferReceived(CanardInstance* ins,
         handle_OperatorID(transfer);
         break;
     case UAVCAN_PROTOCOL_PARAM_GETSET_ID:
+        Serial.printf("DroneCAN: got getset\n");
         handle_param_getset(ins, transfer);
         break;
     case DRONECAN_REMOTEID_SECURECOMMAND_ID:
@@ -320,6 +339,9 @@ void DroneCAN::processRx(void)
         memcpy(rx_frame.data, rxmsg.data, rx_frame.data_len);
         rx_frame.id = rxmsg.id;
         int err = canardHandleRxFrame(&canard, &rx_frame, timestamp);
+        const uint16_t data_type_id = extractDataType(rx_frame.id);
+        Serial.printf("%u : ",data_type_id);
+        Serial.printf("%08x \n",rx_frame.id);
 #if 0
         Serial.printf("%u: FX %08x %02x %02x %02x %02x %02x %02x %02x %02x (%u) -> %d\n",
                       millis(),
@@ -333,6 +355,49 @@ void DroneCAN::processRx(void)
 #endif
     }
 }
+
+#define SOURCE_ID_FROM_ID(x)                        ((uint8_t) (((x) >> 0U)  & 0x7FU))
+#define SRV_TYPE_FROM_ID(x)                         ((uint8_t) (((x) >> 16U) & 0xFFU))
+#define ANON_MSG_DATA_TYPE_ID_BIT_LEN               2U
+#define CANARD_BROADCAST_NODE_ID                    0
+#define SERVICE_NOT_MSG_FROM_ID(x)                  ((bool)    (((x) >> 7U)  & 0x1U))
+#define REQUEST_NOT_RESPONSE_FROM_ID(x)             ((bool)    (((x) >> 15U) & 0x1U))
+#define MSG_TYPE_FROM_ID(x)                         ((uint16_t)(((x) >> 8U)  & 0xFFFFU))
+
+uint16_t DroneCAN::extractDataType(uint32_t id)
+{
+    if (extractTransferType(id) == 4)
+    {
+        uint16_t dtid = MSG_TYPE_FROM_ID(id);
+        if (SOURCE_ID_FROM_ID(id) == CANARD_BROADCAST_NODE_ID)
+        {
+            dtid &= (1U << ANON_MSG_DATA_TYPE_ID_BIT_LEN) - 1U;
+        }
+        return dtid;
+    }
+    else
+    {
+        return (uint16_t) SRV_TYPE_FROM_ID(id);
+    }
+}
+
+int DroneCAN::extractTransferType(uint32_t id)
+{
+    const bool is_service = SERVICE_NOT_MSG_FROM_ID(id);
+    if (!is_service)
+    {
+        return 4;
+    }
+    else if (REQUEST_NOT_RESPONSE_FROM_ID(id) == 1)
+    {
+        return 2;
+    }
+    else
+    {
+        return 1;
+    }
+}
+
 
 CANFrame::CANFrame(uint32_t can_id, const uint8_t* can_data, uint8_t data_len, bool canfd_frame) :
     id(can_id)
