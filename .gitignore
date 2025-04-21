@@ -4,3 +4,4 @@ git-version.h
 *.elf
 *.log
 romfs_files.h
+bin/
