@@ -1,6 +1,6 @@
 #define FW_VERSION_MAJOR 3
 #define FW_VERSION_MINOR 2
-#define SW_VERSION_LAST 4
+#define SW_VERSION_LAST 5
 
 #if defined(BOARD_AURELIA_RID_S3)
 #define HW_VERSION_MAJOR 5

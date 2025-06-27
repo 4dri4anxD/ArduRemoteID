@@ -7,17 +7,9 @@
 #include <Adafruit_NeoPixel.h>
 #endif
 
-enum class BLINK_TIMES : uint8_t {
-    MOUNTING = 1,
-    READ = 2,
-    INIT = 3,
-    READ_AIRPORTS = 4,
-    READ_COUNTRIES = 5,
-};
-
 class Led {
 public:
-    enum class LedState {
+    typedef enum LedState {
         INIT=0,
         PFST_FAIL,
         ARM_FAIL,
@@ -25,13 +17,15 @@ public:
         STARTING,
         UPDATE_SUCCESS,
         UPDATE_FAIL,
-        OFF
+        OFF,
+        COUNT
     };
 
     void set_state(LedState _state) {
         state = _state;
     }
     void update(void);
+    void test(void);
 
 private:
     void init(void);

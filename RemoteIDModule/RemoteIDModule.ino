@@ -93,7 +93,7 @@ void setup()
 
     // Serial for debug printf
     Serial.begin(g.baudrate);
-    led_blink(BLINK_TIMES::INIT, Led::LedState::STARTING);
+    led.test();
     led.set_state(Led::LedState::STARTING);
     led.update();
     // Serial1 for MAVLink
@@ -152,19 +152,6 @@ flight_checks.init();
 
 #define IMIN(x, y) ((x) < (y) ? (x) : (y))
 #define ODID_COPY_STR(to, from) strncpy(to, (const char *)from, IMIN(sizeof(to), sizeof(from)))
-
-void led_blink(BLINK_TIMES times, Led::LedState _state)
-{
-    for (int i = 0; i < (uint8_t)times; i++)
-    {
-        led.set_state(_state);
-        led.update();
-        delay(500);
-        led.set_state(Led::LedState::OFF);
-        led.update();
-        delay(500);
-    }
-}
 
 void print_i2c_display(uint32_t flt_time)
 {

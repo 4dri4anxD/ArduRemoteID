@@ -4,7 +4,7 @@
 #include "parameters.h"
 
 Led led;
-
+int delay_time_ms = 450;
 
 void Led::init(void)
 {
@@ -30,6 +30,39 @@ void Led::init(void)
 #endif
 #ifdef EXTRA_LED
     pinMode(EXTRA_LED, OUTPUT);
+#endif
+}
+
+void Led::test(void){
+
+    init();
+
+    for (int i = 0; i < static_cast<int>(LedState::COUNT) - 1; i++) {
+        set_state(static_cast<LedState>(i));
+        update();
+        delay(delay_time_ms);
+    }
+
+#ifdef AIRPORT_LED
+    digitalWrite(AIRPORT_LED, HIGH);
+    delay(delay_time_ms);
+    digitalWrite(AIRPORT_LED, LOW);
+#endif
+#ifdef COUNTRY_LED
+    digitalWrite(COUNTRY_LED, HIGH);
+    delay(delay_time_ms);
+    digitalWrite(COUNTRY_LED, LOW);
+        
+#endif
+#ifdef PRISON_LED
+    digitalWrite(PRISON_LED, HIGH);
+    delay(delay_time_ms);
+    digitalWrite(PRISON_LED, LOW);
+#endif
+#ifdef EXTRA_LED
+    digitalWrite(EXTRA_LED, HIGH);
+    delay(delay_time_ms);
+    digitalWrite(EXTRA_LED, LOW);
 #endif
 }
 
