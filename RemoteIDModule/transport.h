@@ -4,7 +4,6 @@
 #pragma once
 
 #include "mavlink_msgs.h"
-#include "cipher_config.h"
 
 #define READ_FAIL_MAX 30
 
@@ -69,13 +68,6 @@ public:
         return last_system_ms;
     }
 
-    uint8_t get_ack_request_status()
-    {
-        return ack_request.status;
-    }
-
-    void set_ack_response(uint8_t mac[MAC_LENGTH], uint8_t nonce[NONCE_LENGTH], uint8_t cipher_text[MSG_LENGTH]);
-
     void set_parse_fail(const char *msg)
     {
         parse_fail = msg;
@@ -97,14 +89,6 @@ protected:
     // common variables between transports. The last message of each
     // type, no matter what transport it was on, wins
 
-    struct ack
-    {
-        uint8_t mac[MAC_LENGTH];
-        uint8_t nonce[NONCE_LENGTH];
-        uint8_t cipher_text[MSG_LENGTH];
-    };
-
-    static struct ack ack_response;
     static const char *parse_fail;
     static uint8_t fl_status;
 
@@ -126,7 +110,6 @@ protected:
     static mavlink_open_drone_id_operator_id_t operator_id;
     static mavlink_aurelia_flt_time_t flt_time;
     static mavlink_aurelia_odid_serial_number_t serial_number;
-    static mavlink_aurelia_util_ack_request_t ack_request;
 
     void make_session_key(uint8_t key[8]) const;
 

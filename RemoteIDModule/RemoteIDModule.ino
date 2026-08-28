@@ -34,7 +34,6 @@
 #endif
 #include "distance_checker.h"
 #include "monocypher.h"
-#include "cipher_config.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -476,25 +475,6 @@ static void set_data(Transport &t)
     }
 }
 
-void send_ack_response(Transport &t)
-{
-    uint8_t message[MSG_LENGTH];
-    uint8_t cipher_text[MSG_LENGTH];
-    uint8_t mac[MAC_LENGTH];
-
-    uint8_t nonce[NONCE_LENGTH];
-    for (uint8_t i = 0; i < NONCE_LENGTH; ++i)
-    {
-        nonce[i] = std::rand() % 256;
-    }
-    uint32_t timestamp = millis();
-    memcpy(message, ACK_MESSAGE, sizeof(ACK_MESSAGE));
-    memcpy(&message[13], &timestamp, sizeof(timestamp));
-
-    crypto_lock(mac, cipher_text, KEY, nonce, message, MSG_LENGTH);
-    t.set_ack_response(mac, nonce, cipher_text);
-}
-
 static uint8_t loop_counter = 0;
 
 void loop()
@@ -569,11 +549,6 @@ void loop()
             delay(1);
             return;
         }
-    }
-
-    if (transport.get_ack_request_status() == MAV_AURELIA_UTIL_ACK_REQUEST_NEED)
-    {
-        send_ack_response(transport);
     }
 
     set_data(transport);

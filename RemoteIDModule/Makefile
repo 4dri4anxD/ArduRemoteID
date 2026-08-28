@@ -12,6 +12,13 @@ ARDUINO_CLI=../bin/arduino-cli
 APP_PARTITION_SIZE_S3=1966080
 APP_PARTITION_SIZE_C3=2031616
 
+# Per-target overridable defaults
+FLASH_SIZE  ?= 4MB
+CHIP_OPTS   ?=
+SIGN_KEY    ?= 24
+SPIFFS_ARG  ?=
+PART_SIZE   ?= $(APP_PARTITION_SIZE_C3)
+
 # ensure python tools are in $PATH
 export PATH := $(HOME)/.local/bin:$(PATH)
 
@@ -59,7 +66,12 @@ aurelia-rid-c3: CHIP=esp32c3
 aurelia-rid-c3: ArduRemoteID-AURELIA_RID_C3.bin
 
 aurelia-rid-s3: CHIP=esp32s3
-aurelia-rid-s3: FLDSMDFR-AURELIA_RID_S3.bin
+aurelia-rid-s3: CHIP_OPTS=:FlashSize=8M,FlashMode=dio
+aurelia-rid-s3: FLASH_SIZE=8MB
+aurelia-rid-s3: PART_SIZE=$(APP_PARTITION_SIZE_S3)
+aurelia-rid-s3: SIGN_KEY=25
+aurelia-rid-s3: SPIFFS_ARG=0x3D4000 spiffs/spiffs_gen.bin
+aurelia-rid-s3: ArduRemoteID-AURELIA_RID_S3.bin
 
 setup:
 	@echo "Installing ESP32 support"
@@ -83,26 +95,13 @@ romfs_files.h: web/*.html web/js/*.js web/styles/*css web/images/*.jpg public_ke
 
 ArduRemoteID-%.bin: gitversion *.cpp *.ino *.h romfs_files.h
 	@echo "Building $* on $(CHIP)"
-	@BUILD_FLAGS="-DBOARD_$*"
 	@rm -rf build build-$*
-	@$(ARDUINO_CLI) compile -b esp32:esp32:$(CHIP) --export-binaries --build-property build.extra_flags="-DBOARD_$* -DESP32" --build-property upload.maximum_size=$(APP_PARTITION_SIZE_C3)
+	@$(ARDUINO_CLI) compile -b esp32:esp32:$(CHIP)$(CHIP_OPTS) --export-binaries --build-property build.extra_flags="-DBOARD_$* -DESP32" --build-property upload.maximum_size=$(PART_SIZE)
 	@cp build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bin ArduRemoteID_$*_OTA.bin
 	@echo "Merging $*"
-	@python3 $(ESPTOOL) --chip $(CHIP) merge_bin -o ArduRemoteID-$*.bin --flash_size 4MB 0x0 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bootloader.bin 0x8000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.partitions.bin 0xe000 $(BOOT_APP)/partitions/boot_app0.bin 0x10000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bin
+	@python3 $(ESPTOOL) --chip $(CHIP) merge_bin -o ArduRemoteID-$*.bin --flash_size $(FLASH_SIZE) 0x0 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bootloader.bin 0x8000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.partitions.bin 0xe000 $(BOOT_APP)/partitions/boot_app0.bin 0x10000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bin $(SPIFFS_ARG)
 	@mv build build-$*
-# Remove this line if not building for aurelia
-	@../scripts/sign_fw.py ArduRemoteID_$*_OTA.bin keys/AureliaKeys_private_key.dat 24
-
-FLDSMDFR-%.bin: gitversion *.cpp *.ino *.h romfs_files.h
-	@echo "Building $* on $(CHIP)"
-	@BUILD_FLAGS="-DBOARD_$*"
-	@rm -rf build build-$*
-	@$(ARDUINO_CLI) compile -b esp32:esp32:$(CHIP):FlashSize=8M,FlashMode=dio --export-binaries --build-property build.extra_flags="-DBOARD_$* -DESP32" --build-property upload.maximum_size=$(APP_PARTITION_SIZE_S3)
-	@cp build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bin FLDSMDFR_$*_OTA.bin
-	@echo "Merging $*"
-	@python3 $(ESPTOOL) --chip $(CHIP) merge_bin -o FLDSMDFR-$*.bin --flash_size 8MB 0x0 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bootloader.bin 0x8000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.partitions.bin 0xe000 $(BOOT_APP)/partitions/boot_app0.bin 0x10000 build/esp32.esp32.$(CHIP)/RemoteIDModule.ino.bin 0x3D4000 spiffs/spiffs_gen.bin
-	@mv build build-$*
-	@../scripts/sign_fw.py FLDSMDFR_$*_OTA.bin keys/AureliaKeys_private_key.dat 25
+	@../scripts/sign_fw.py ArduRemoteID_$*_OTA.bin keys/AureliaKeys_private_key.dat $(SIGN_KEY)
 
 boards:
 	@echo "Listing boards"

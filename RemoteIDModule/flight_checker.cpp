@@ -642,9 +642,7 @@ String FlightChecks::is_flying_allowed()
 
     if (!files_read)
     { // Only enters the first time when powered up
-        if (t.get_ack_request_status() == MAV_AURELIA_UTIL_ACK_REQUEST_DONE)
-        {
-            bool passed = true;
+        bool passed = true;
             if (!(g.options & OPTIONS_BYPASS_AIRPORT_CHECKS))
             {
                 passed &= check_for_near_airports();
@@ -678,14 +676,13 @@ String FlightChecks::is_flying_allowed()
                 */
 
                 files_read = true;
-            }
-            else
-            {
-                free(country_coords);
-                free(airport_coords);
-                free(prison_coords);
-                return "FILE ";
-            }
+        }
+        else
+        {
+            free(country_coords);
+            free(airport_coords);
+            free(prison_coords);
+            return "FILE ";
         }
     }
 

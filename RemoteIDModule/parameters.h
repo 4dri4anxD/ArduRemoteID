@@ -115,6 +115,9 @@ public:
     bool remove_public_key(uint8_t i);
     bool no_public_keys(void) const;
 
+    bool get_private_key(uint8_t seed[32]) const;
+    bool set_private_key(const uint8_t seed[32]);
+
     static uint16_t param_count_float(void);
     static int16_t param_index_float(const Param *p);
     int32_t get_serial_number();

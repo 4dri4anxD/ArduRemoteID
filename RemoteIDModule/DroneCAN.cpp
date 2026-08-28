@@ -27,8 +27,6 @@
 #include <dronecan.aurelia.remoteid.Status.h>
 #include <dronecan.aurelia.util.FltTime.h>
 #include <dronecan.aurelia.remoteid.SerialNumber.h>
-#include <dronecan.aurelia.util.AckRequest.h>
-#include <dronecan.aurelia.util.AckMessage.h>
 
 #ifndef CAN_BOARD_ID
 #define CAN_BOARD_ID 10001
@@ -97,33 +95,9 @@ void DroneCAN::update(void)
             last_arm_status_ms = now_ms;
             arm_status_send();
         }
-        if (now_ms - last_ack_ms >= 100 && ack_request.status == MAV_AURELIA_UTIL_ACK_REQUEST_NEED) {
-            last_ack_ms = now_ms;
-            ack_send();
-        }
     }
     processTx();
     processRx();
-}
-
-void DroneCAN::ack_send(void)
-{
-    uint8_t buffer[DRONECAN_AURELIA_UTIL_ACKMESSAGE_MAX_SIZE];
-    dronecan_aurelia_util_AckMessage ack {};
-
-    memcpy(ack.mac, ack_response.mac, sizeof(ack.mac));
-    memcpy(ack.nonce, ack_response.nonce, sizeof(ack.nonce));
-    memcpy(ack.cipher_text, ack_response.cipher_text, sizeof(ack.cipher_text));
-
-    const uint16_t len = dronecan_aurelia_util_AckMessage_encode(&ack, buffer);
-    static uint8_t tx_id;
-    canardBroadcast(&canard,
-                    DRONECAN_AURELIA_UTIL_ACKMESSAGE_SIGNATURE,
-                    DRONECAN_AURELIA_UTIL_ACKMESSAGE_ID,
-                    &tx_id,
-                    CANARD_TRANSFER_PRIORITY_LOW,
-                    (void*)buffer,
-                    len);
 }
 
 void DroneCAN::node_status_send(void)
@@ -213,10 +187,6 @@ void DroneCAN::onTransferReceived(CanardInstance* ins,
     case DRONECAN_REMOTEID_SECURECOMMAND_ID:
         handle_SecureCommand(ins, transfer);
         break;
-    case DRONECAN_AURELIA_UTIL_ACKREQUEST_ID:
-        //Serial.printf("DroneCAN: got ACK Request\n");
-        handle_AckRequest(transfer);
-        break;
     case DRONECAN_AURELIA_UTIL_FLTTIME_ID:
         //Serial.printf("DroneCAN: got FltTime\n");
         handle_FltTime(transfer);
@@ -253,7 +223,6 @@ bool DroneCAN::shouldAcceptTransfer(const CanardInstance* ins,
         ACCEPT_ID(DRONECAN_REMOTEID_OPERATORID);
         ACCEPT_ID(DRONECAN_REMOTEID_SYSTEM);
         ACCEPT_ID(DRONECAN_REMOTEID_SECURECOMMAND);
-        ACCEPT_ID(DRONECAN_AURELIA_UTIL_ACKREQUEST);
         ACCEPT_ID(UAVCAN_PROTOCOL_PARAM_GETSET);
         ACCEPT_ID(DRONECAN_AURELIA_UTIL_FLTTIME);
         ACCEPT_ID(DRONECAN_AURELIA_REMOTEID_SERIALNUMBER);
@@ -534,15 +503,6 @@ void DroneCAN::readUniqueID(uint8_t id[6])
 #define IMIN(a,b) ((a)<(b)?(a):(b))
 #define COPY_FIELD(fname) mpkt.fname = pkt.fname
 #define COPY_STR(fname) memcpy(mpkt.fname, pkt.fname.data, IMIN(pkt.fname.len, sizeof(mpkt.fname)))
-
-void DroneCAN::handle_AckRequest(CanardRxTransfer* transfer)
-{
-    dronecan_aurelia_util_AckRequest pkt {};
-    auto &mpkt = ack_request;
-    dronecan_aurelia_util_AckRequest_decode(transfer, &pkt);
-    memset(&mpkt, 0, sizeof(mpkt));
-    COPY_FIELD(status);
-}
 
 void DroneCAN::handle_BasicID(CanardRxTransfer* transfer)
 {
@@ -842,6 +802,40 @@ void DroneCAN::handle_SecureCommand(CanardInstance* ins, CanardRxTransfer* trans
     reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_UNSUPPORTED;
     reply.sequence = req.sequence;
     reply.operation = req.operation;
+
+    if (req.operation == DRONECAN_REMOTEID_SECURECOMMAND_REQUEST_SECURE_COMMAND_GENERATE_RID_KEY) {
+        uint8_t seed[32];
+        uint8_t pubkey[32];
+        esp_fill_random(seed, 32);
+        crypto_sign_public_key(pubkey, seed);
+        if (g.set_private_key(seed)) {
+            crypto_wipe(seed, sizeof(seed));
+            memcpy(reply.data.data, pubkey, 32);
+            reply.data.len = 32;
+            reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_ACCEPTED;
+        } else {
+            crypto_wipe(seed, sizeof(seed));
+            reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_FAILED;
+        }
+        goto send_reply;
+    }
+
+    if (req.operation == DRONECAN_REMOTEID_SECURECOMMAND_REQUEST_SECURE_COMMAND_AUTH_CHALLENGE) {
+        if (req.data.len == 32) {
+            uint8_t seed[32];
+            if (g.get_private_key(seed)) {
+                crypto_sign(reply.data.data, seed, nullptr, req.data.data, 32);
+                reply.data.len = 64;
+                reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_ACCEPTED;
+                crypto_wipe(seed, sizeof(seed));
+            } else {
+                reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_FAILED;
+            }
+        } else {
+            reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_FAILED;
+        }
+        goto send_reply;
+    }
 
     if (!check_signature(req.sig_length, req.data.len-req.sig_length,
                          req.sequence, req.operation, req.data.data)) {

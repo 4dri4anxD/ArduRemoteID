@@ -538,3 +538,23 @@ bool Parameters::remove_public_key(uint8_t i)
     name[strlen(name)-2] = '1'+i;
     return set_by_name_char64(name, "");
 }
+
+bool Parameters::get_private_key(uint8_t seed[32]) const
+{
+    size_t len = 32;
+    esp_err_t err = nvs_get_blob(handle, "priv_key", seed, &len);
+    if (err != ESP_OK) {
+        Serial.printf("get_private_key failed: 0x%x len=%u\n", err, (unsigned)len);
+    }
+    return err == ESP_OK && len == 32;
+}
+
+bool Parameters::set_private_key(const uint8_t seed[32])
+{
+    Serial.printf("set_private_key: seed[0..3]=%02x%02x%02x%02x\n",
+                  seed[0], seed[1], seed[2], seed[3]);
+    bool ok = nvs_set_blob(handle, "priv_key", seed, 32) == ESP_OK &&
+              nvs_commit(handle) == ESP_OK;
+    Serial.printf("set_private_key: result=%d\n", ok);
+    return ok;
+}

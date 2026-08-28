@@ -8,7 +8,6 @@
 #include "monocypher.h"
 
 const char *Transport::parse_fail = "uninitialised";
-struct Transport::ack Transport::ack_response = {0,0,0};
 
 uint32_t Transport::last_location_ms;
 uint32_t Transport::last_basic_id_ms;
@@ -28,7 +27,6 @@ mavlink_open_drone_id_system_t Transport::system;
 mavlink_open_drone_id_operator_id_t Transport::operator_id;
 mavlink_aurelia_flt_time_t Transport::flt_time;
 mavlink_aurelia_odid_serial_number_t Transport::serial_number;
-mavlink_aurelia_util_ack_request_t Transport::ack_request;
 uint8_t Transport::fl_status = 0;
 
 Transport::Transport()
@@ -110,12 +108,6 @@ uint8_t Transport::status_check(const char *&reason)
     fl_status = status;
 
     return status;
-}
-
-void Transport::set_ack_response(uint8_t mac[MAC_LENGTH], uint8_t nonce[NONCE_LENGTH], uint8_t cipher_text[MSG_LENGTH]){
-    memcpy(ack_response.mac, mac, sizeof(ack_response.mac));
-    memcpy(ack_response.nonce, nonce, sizeof(ack_response.nonce));
-    memcpy(ack_response.cipher_text, cipher_text, sizeof(ack_response.cipher_text));
 }
 
 /*
