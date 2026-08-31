@@ -147,6 +147,10 @@ void Led::update(void)
     case LedState::UPDATE_FAIL:
         ledStrip.setPixelColor(0, ledStrip.Color(255, 255, 0));
         break;
+    case LedState::OTA_IN_PROGRESS:
+        ledStrip.setPixelColor(0, ledStrip.Color(255, 80, 0));
+        ledStrip.setPixelColor(1, ledStrip.Color(255, 80, 0));
+        break;
     default:
         ledStrip.setPixelColor(0, ledStrip.Color(255, 0, 0));
         ledStrip.setPixelColor(1, ledStrip.Color(255, 0, 0)); //for db210pro, set the second LED to have the same output (for now)

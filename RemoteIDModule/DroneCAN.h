@@ -12,6 +12,7 @@
 #include <dronecan.remoteid.System.h>
 #include <dronecan.remoteid.OperatorID.h>
 #include <dronecan.remoteid.SecureCommand.h>
+#include <esp_ota_ops.h>
 
 #define CAN_POOL_SIZE 4096
 
@@ -64,6 +65,13 @@ private:
     void handle_SerialNumber(CanardRxTransfer* transfer);
 
     void can_printf(const char *fmt, ...);
+
+    // OTA state
+    esp_ota_handle_t _ota_handle;
+    const esp_partition_t *_ota_part;
+    bool _ota_active;
+    bool _ota_reboot_pending;
+    bool _ota_show_fail;
 
 public:
     void onTransferReceived(CanardInstance* ins, CanardRxTransfer* transfer);

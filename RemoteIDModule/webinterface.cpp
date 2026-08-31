@@ -118,12 +118,15 @@ void WebInterface::init(void)
         if (upload.status == UPLOAD_FILE_START) {
             Serial.printf("Update: %s\n", upload.filename.c_str());
             lead_len = 0;
-
+            led.set_state(Led::LedState::OTA_IN_PROGRESS);
+            led.update();
             if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
                 Update.printError(Serial);
             }
         } else if (upload.status == UPLOAD_FILE_WRITE) {
             /* flashing firmware to ESP*/
+            led.set_state(Led::LedState::OTA_IN_PROGRESS);
+            led.update();
             if (lead_len < sizeof(lead_bytes)) {
                 uint32_t n = sizeof(lead_bytes)-lead_len;
                 if (n > upload.currentSize) {

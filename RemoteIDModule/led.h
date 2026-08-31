@@ -17,6 +17,7 @@ public:
         STARTING,
         UPDATE_SUCCESS,
         UPDATE_FAIL,
+        OTA_IN_PROGRESS,
         OFF,
         COUNT
     };

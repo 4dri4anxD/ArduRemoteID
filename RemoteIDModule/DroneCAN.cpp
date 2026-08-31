@@ -7,6 +7,9 @@
 #include "version.h"
 #include <time.h>
 #include "DroneCAN.h"
+#include "check_firmware.h"
+#include "led.h"
+#include <esp_wifi.h>
 #include "parameters.h"
 #include <stdarg.h>
 #include "util.h"
@@ -38,13 +41,22 @@
 
 #define UNUSED(x) (void)(x)
 
+static void ota_led_show(Led::LedState state, uint32_t ms)
+{
+    const uint32_t until = millis() + ms;
+    while (millis() < until) {
+        led.set_state(state);
+        led.update();
+        delay(10);
+    }
+}
+
 
 static void onTransferReceived_trampoline(CanardInstance* ins, CanardRxTransfer* transfer);
 static bool shouldAcceptTransfer_trampoline(const CanardInstance* ins, uint64_t* out_data_type_signature, uint16_t data_type_id,
         CanardTransferType transfer_type,
         uint8_t source_node_id);
 
-int counter;
 // decoded messages
 
 void DroneCAN::init(void)
@@ -85,6 +97,9 @@ void DroneCAN::init(void)
 
 void DroneCAN::update(void)
 {
+    if (_ota_active) {
+        led.set_state(Led::LedState::OTA_IN_PROGRESS);
+    }
     if (do_DNA()) {
         const uint32_t now_ms = millis();
         if (now_ms - last_node_status_ms >= 1000) {
@@ -98,6 +113,16 @@ void DroneCAN::update(void)
     }
     processTx();
     processRx();
+    if (_ota_reboot_pending) {
+        for (int i = 0; i < 50; i++) { processTx(); delay(2); }
+        ota_led_show(Led::LedState::UPDATE_SUCCESS, 3000);
+        esp_restart();
+    }
+    if (_ota_show_fail) {
+        _ota_show_fail = false;
+        for (int i = 0; i < 50; i++) { processTx(); delay(2); }
+        ota_led_show(Led::LedState::UPDATE_FAIL, 3000);
+    }
 }
 
 void DroneCAN::node_status_send(void)
@@ -791,6 +816,18 @@ void DroneCAN::handle_param_getset(CanardInstance* ins, CanardRxTransfer* transf
 /*
   handle SecureCommand
  */
+static void dronecan_send_secure_reply(CanardInstance *ins, CanardRxTransfer *transfer,
+                                        dronecan_remoteid_SecureCommandResponse &reply)
+{
+    uint8_t buf[UAVCAN_PROTOCOL_PARAM_GETSET_RESPONSE_MAX_SIZE] {};
+    uint16_t sz = dronecan_remoteid_SecureCommandResponse_encode(&reply, buf);
+    canardRequestOrRespond(ins, transfer->source_node_id,
+                           DRONECAN_REMOTEID_SECURECOMMAND_SIGNATURE,
+                           DRONECAN_REMOTEID_SECURECOMMAND_ID,
+                           &transfer->transfer_id, transfer->priority,
+                           CanardResponse, buf, sz);
+}
+
 void DroneCAN::handle_SecureCommand(CanardInstance* ins, CanardRxTransfer* transfer)
 {
     dronecan_remoteid_SecureCommandRequest req;
@@ -837,6 +874,101 @@ void DroneCAN::handle_SecureCommand(CanardInstance* ins, CanardRxTransfer* trans
         goto send_reply;
     }
 
+    if (req.operation == DRONECAN_REMOTEID_SECURECOMMAND_REQUEST_SECURE_COMMAND_OTA_CHUNK) {
+        if (req.data.len < 5) {
+            reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_DENIED;
+            goto send_reply;
+        }
+        uint8_t flags = req.data.data[0];
+        const uint8_t *chunk = &req.data.data[5];
+        uint16_t chunk_len = req.data.len - 5;
+        bool first = (flags & 0x01) != 0;
+        bool last  = (flags & 0x02) != 0;
+
+        if (first) {
+            if (_ota_active) {
+                Serial.printf("OTA: aborting previous session\n");
+                esp_ota_abort(_ota_handle);
+                _ota_active = false;
+                esp_wifi_start();
+            }
+            _ota_part = esp_ota_get_next_update_partition(nullptr);
+            if (_ota_part == nullptr) {
+                Serial.printf("OTA: no OTA partition found\n");
+                _ota_show_fail = true;
+                reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_FAILED;
+                goto send_reply;
+            }
+            _ota_active = true;
+            Serial.printf("OTA: session started\n");
+        }
+
+        if (!_ota_active) {
+            Serial.printf("OTA: chunk received but no active session\n");
+            reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_DENIED;
+            goto send_reply;
+        }
+
+        if (!last) {
+            // Fire-and-forget: respond ACCEPTED before any blocking operations so the FC
+            // can pipeline the next chunk immediately. esp_ota_begin (flash erase, ~3s)
+            // and esp_wifi_stop are deferred to after the reply.
+            reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_ACCEPTED;
+            dronecan_send_secure_reply(ins, transfer, reply);
+            processTx();
+            if (first) {
+                esp_wifi_stop();
+                if (esp_ota_begin(_ota_part, OTA_SIZE_UNKNOWN, &_ota_handle) != ESP_OK) {
+                    Serial.printf("OTA: esp_ota_begin failed\n");
+                    _ota_active = false;
+                    _ota_show_fail = true;
+                    esp_wifi_start();
+                    return;
+                }
+            }
+            if (chunk_len > 0 && esp_ota_write(_ota_handle, chunk, chunk_len) != ESP_OK) {
+                Serial.printf("OTA: esp_ota_write failed\n");
+                esp_ota_abort(_ota_handle);
+                _ota_active = false;
+                _ota_show_fail = true;
+                esp_wifi_start();
+            }
+            return;
+        }
+
+        // Last chunk: write then validate before responding.
+        if (chunk_len > 0 && esp_ota_write(_ota_handle, chunk, chunk_len) != ESP_OK) {
+            Serial.printf("OTA: esp_ota_write failed (last chunk)\n");
+            esp_ota_abort(_ota_handle);
+            _ota_active = false;
+            _ota_show_fail = true;
+            esp_wifi_start();
+            reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_FAILED;
+            goto send_reply;
+        }
+        if (esp_ota_end(_ota_handle) != ESP_OK) {
+            Serial.printf("OTA: esp_ota_end failed\n");
+            _ota_active = false;
+            _ota_show_fail = true;
+            esp_wifi_start();
+            reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_FAILED;
+            goto send_reply;
+        }
+        _ota_active = false;
+        if (!CheckFirmware::check_OTA_next(_ota_part, nullptr, 0)) {
+            Serial.printf("OTA: check_OTA_next FAILED — firmware rejected\n");
+            _ota_show_fail = true;
+            esp_wifi_start();
+            reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_DENIED;
+            goto send_reply;
+        }
+        Serial.printf("OTA: firmware validated OK — rebooting\n");
+        esp_ota_set_boot_partition(_ota_part);
+        _ota_reboot_pending = true;
+        reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_ACCEPTED;
+        goto send_reply;
+    }
+
     if (!check_signature(req.sig_length, req.data.len-req.sig_length,
                          req.sequence, req.operation, req.data.data)) {
         reply.result = DRONECAN_REMOTEID_SECURECOMMAND_RESPONSE_RESULT_DENIED;
@@ -852,7 +984,7 @@ void DroneCAN::handle_SecureCommand(CanardInstance* ins, CanardRxTransfer* trans
         break;
     }
     case DRONECAN_REMOTEID_SECURECOMMAND_REQUEST_SECURE_COMMAND_SET_REMOTEID_CONFIG: {
-        Serial.printf("SECURE_COMMAND_SET_REMOTEID_CONFIG\n");
+        //Serial.printf("SECURE_COMMAND_SET_REMOTEID_CONFIG\n");
         int16_t data_len = req.data.len - req.sig_length;
         req.data.data[data_len] = 0;
         /*
@@ -862,7 +994,6 @@ void DroneCAN::handle_SecureCommand(CanardInstance* ins, CanardRxTransfer* trans
         char *command = (char *)req.data.data;
         while (data_len > 0) {
             uint8_t cmdlen = strlen(command);
-            Serial.printf("set_config %s", command);
             char *eq = strchr(command, '=');
             if (eq != nullptr) {
                 *eq = 0;
